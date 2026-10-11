@@ -2,26 +2,36 @@ import { NextResponse } from 'next/server';
 import {
   client, ready, parseProduct, normalizeCollection,
   isNonEmptyString, isPositiveInt,
+  sanitizeText, sanitizeStringArray, isSafeImageUrl,
 } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-guard';
+import { checkOrigin } from '@/lib/csrf';
+import { checkRate } from '@/lib/rate-limit';
 
 const ALLOWED = ['sku', 'name', 'collection', 'price', 'old_price', 'colors', 'material',
   'description', 'image', 'rating', 'reviews', 'badge', 'stock', 'active'];
 
+function adminWriteLimit(req) {
+  return checkRate(req, { windowMs: 60_000, max: 60, scope: 'admin-write' });
+}
+
 function clean(k, v, existing) {
   switch (k) {
-    case 'sku': return isNonEmptyString(v) ? v.trim().slice(0, 40) : existing.sku;
-    case 'name': return v.trim().slice(0, 200);
+    case 'sku': return sanitizeText(v, 40) || existing.sku;
+    case 'name': return sanitizeText(v, 200);
     case 'collection': return v;
     case 'price': return v;
     case 'old_price': return isPositiveInt(v) ? v : null;
-    case 'colors': return JSON.stringify(Array.isArray(v) ? v.slice(0, 12) : []);
-    case 'material': return isNonEmptyString(v) ? v.trim().slice(0, 120) : null;
-    case 'description': return isNonEmptyString(v) ? v.trim().slice(0, 2000) : null;
-    case 'image': return isNonEmptyString(v) ? v.trim().slice(0, 300) : null;
+    case 'colors': return JSON.stringify(sanitizeStringArray(v));
+    case 'material': return sanitizeText(v, 120) || null;
+    case 'description': return sanitizeText(v, 2000) || null;
+    case 'image': {
+      const s = sanitizeText(v, 300);
+      return s && isSafeImageUrl(s) ? s : null;
+    }
     case 'rating': return typeof v === 'number' ? Math.min(5, Math.max(0, v)) : existing.rating;
     case 'reviews': return isPositiveInt(v) ? v : 0;
-    case 'badge': return isNonEmptyString(v) ? v.trim().slice(0, 20) : null;
+    case 'badge': return sanitizeText(v, 20) || null;
     case 'stock': return v;
     case 'active': return v ? 1 : 0;
     default: return v;
@@ -31,6 +41,11 @@ function clean(k, v, existing) {
 export async function PATCH(req, { params }) {
   const denied = requireAdmin(req);
   if (denied) return denied;
+  const badOrigin = checkOrigin(req);
+  if (badOrigin) return badOrigin;
+  if (!adminWriteLimit(req)) {
+    return NextResponse.json({ error: 'Too many requests. Slow down.' }, { status: 429 });
+  }
   const id = parseInt(params.id, 10);
   if (!Number.isInteger(id) || id <= 0) {
     return NextResponse.json({ error: 'Invalid product id.' }, { status: 400 });
@@ -58,7 +73,7 @@ export async function PATCH(req, { params }) {
   if ('price' in updates && !isPositiveInt(updates.price)) {
     return NextResponse.json({ error: 'price must be a positive integer (PKR).' }, { status: 400 });
   }
-  if ('name' in updates && !isNonEmptyString(updates.name)) {
+  if ('name' in updates && !sanitizeText(updates.name, 200)) {
     return NextResponse.json({ error: 'name cannot be empty.' }, { status: 400 });
   }
   if ('colors' in updates && !Array.isArray(updates.colors)) {
@@ -77,10 +92,11 @@ export async function PATCH(req, { params }) {
       args: [...keys.map((k) => clean(k, updates[k], existing)), id],
     });
   } catch (e) {
-    if (String(e.message).includes('UNIQUE')) {
+    if (String(e && e.message).includes('UNIQUE')) {
       return NextResponse.json({ error: 'SKU already exists.' }, { status: 400 });
     }
-    throw e;
+    console.error('admin product update failed', e);
+    return NextResponse.json({ error: 'Could not update product.' }, { status: 500 });
   }
   const r = await c.execute({ sql: 'SELECT * FROM products WHERE id = ?', args: [id] });
   return NextResponse.json(parseProduct(r.rows[0]));
@@ -89,6 +105,11 @@ export async function PATCH(req, { params }) {
 export async function DELETE(req, { params }) {
   const denied = requireAdmin(req);
   if (denied) return denied;
+  const badOrigin = checkOrigin(req);
+  if (badOrigin) return badOrigin;
+  if (!adminWriteLimit(req)) {
+    return NextResponse.json({ error: 'Too many requests. Slow down.' }, { status: 429 });
+  }
   const id = parseInt(params.id, 10);
   if (!Number.isInteger(id) || id <= 0) {
     return NextResponse.json({ error: 'Invalid product id.' }, { status: 400 });

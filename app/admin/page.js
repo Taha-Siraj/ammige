@@ -10,6 +10,18 @@ export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [tab, setTab] = useState('Dashboard');
+  const [pwWeak, setPwWeak] = useState(false);
+  const [pwDismissed, setPwDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!authed) return;
+    fetch('/api/admin/settings')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && d.password_weak) setPwWeak(true);
+      })
+      .catch(() => {});
+  }, [authed]);
 
   useEffect(() => {
     fetch('/api/admin/stats')
@@ -89,6 +101,40 @@ export default function AdminPage() {
           </button>
         ))}
       </div>
+
+      {pwWeak && !pwDismissed && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            background: '#FDF3E3',
+            border: '1px solid #E8C87A',
+            borderRadius: 10,
+            padding: '10px 14px',
+            marginBottom: 18,
+            fontSize: 14,
+          }}
+        >
+          <span style={{ flex: 1 }}>
+            ⚠️ Your admin password looks weak. Please change it in{' '}
+            <button
+              onClick={() => setTab('Settings')}
+              style={{ textDecoration: 'underline', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', font: 'inherit', padding: 0 }}
+            >
+              Settings
+            </button>
+            .
+          </span>
+          <button
+            onClick={() => setPwDismissed(true)}
+            aria-label="Dismiss"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {tab === 'Dashboard' && <Dashboard />}
       {tab === 'Products' && <Products />}

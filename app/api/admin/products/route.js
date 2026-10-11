@@ -2,14 +2,24 @@ import { NextResponse } from 'next/server';
 import {
   client, ready, parseProduct, normalizeCollection,
   isNonEmptyString, isPositiveInt,
+  sanitizeText, sanitizeStringArray, isSafeImageUrl,
 } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-guard';
+import { checkOrigin } from '@/lib/csrf';
+import { checkRate } from '@/lib/rate-limit';
 
 const SKU_PREFIX = { everyday: 'ED', signature: 'SG', leather: 'LT' };
+
+function adminWriteLimit(req) {
+  return checkRate(req, { windowMs: 60_000, max: 60, scope: 'admin-write' });
+}
 
 export async function GET(req) {
   const denied = requireAdmin(req);
   if (denied) return denied;
+  if (!adminWriteLimit(req)) {
+    return NextResponse.json({ error: 'Too many requests. Slow down.' }, { status: 429 });
+  }
   await ready();
   const { searchParams } = new URL(req.url);
   const collection = searchParams.get('collection');
@@ -47,6 +57,11 @@ export async function GET(req) {
 export async function POST(req) {
   const denied = requireAdmin(req);
   if (denied) return denied;
+  const badOrigin = checkOrigin(req);
+  if (badOrigin) return badOrigin;
+  if (!adminWriteLimit(req)) {
+    return NextResponse.json({ error: 'Too many requests. Slow down.' }, { status: 429 });
+  }
   let b;
   try {
     b = await req.json();
@@ -54,7 +69,8 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
-  if (!isNonEmptyString(b.name)) return NextResponse.json({ error: 'name is required.' }, { status: 400 });
+  const name = sanitizeText(b.name, 200);
+  if (!name) return NextResponse.json({ error: 'name is required.' }, { status: 400 });
   const collectionSlug = normalizeCollection(b.collection);
   if (!collectionSlug) {
     return NextResponse.json({ error: 'collection must be everyday|signature|leather.' }, { status: 400 });
@@ -62,10 +78,14 @@ export async function POST(req) {
   if (!isPositiveInt(b.price)) {
     return NextResponse.json({ error: 'price must be a positive integer (PKR).' }, { status: 400 });
   }
+  const image = sanitizeText(b.image, 300);
+  if (image && !isSafeImageUrl(image)) {
+    return NextResponse.json({ error: 'image must be a relative path or http(s) URL.' }, { status: 400 });
+  }
 
   await ready();
   const c = client();
-  let sku = isNonEmptyString(b.sku) ? b.sku.trim().slice(0, 40) : null;
+  let sku = sanitizeText(b.sku, 40) || null;
   if (!sku) {
     const m = await c.execute('SELECT COALESCE(MAX(id),0) AS v FROM products');
     const nextId = Number(m.rows[0].v) + 1;
@@ -79,17 +99,17 @@ export async function POST(req) {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         sku,
-        b.name.trim().slice(0, 200),
+        name,
         collectionSlug,
         b.price,
         isPositiveInt(b.old_price) ? b.old_price : null,
-        JSON.stringify(Array.isArray(b.colors) ? b.colors.slice(0, 12) : []),
-        isNonEmptyString(b.material) ? b.material.trim().slice(0, 120) : null,
-        isNonEmptyString(b.description) ? b.description.trim().slice(0, 2000) : null,
-        isNonEmptyString(b.image) ? b.image.trim().slice(0, 300) : null,
+        JSON.stringify(sanitizeStringArray(b.colors)),
+        sanitizeText(b.material, 120) || null,
+        sanitizeText(b.description, 2000) || null,
+        image || null,
         typeof b.rating === 'number' ? Math.min(5, Math.max(0, b.rating)) : 0,
         isPositiveInt(b.reviews) ? b.reviews : 0,
-        isNonEmptyString(b.badge) ? b.badge.trim().slice(0, 20) : null,
+        sanitizeText(b.badge, 20) || null,
         Number.isInteger(b.stock) && b.stock >= 0 ? b.stock : 50,
         b.active === 0 || b.active === false ? 0 : 1,
         new Date().toISOString(),
@@ -98,9 +118,10 @@ export async function POST(req) {
     const r = await c.execute({ sql: 'SELECT * FROM products WHERE id = ?', args: [Number(ins.lastInsertRowid)] });
     return NextResponse.json(parseProduct(r.rows[0]), { status: 201 });
   } catch (e) {
-    if (String(e.message).includes('UNIQUE')) {
+    if (String(e && e.message).includes('UNIQUE')) {
       return NextResponse.json({ error: 'SKU already exists.' }, { status: 400 });
     }
-    throw e;
+    console.error('admin product create failed', e);
+    return NextResponse.json({ error: 'Could not create product.' }, { status: 500 });
   }
 }

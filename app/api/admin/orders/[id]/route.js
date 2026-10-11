@@ -1,10 +1,17 @@
 import { NextResponse } from 'next/server';
 import { client, ready, parseOrder, ORDER_STATUSES } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-guard';
+import { checkOrigin } from '@/lib/csrf';
+import { checkRate } from '@/lib/rate-limit';
 
 export async function PATCH(req, { params }) {
   const denied = requireAdmin(req);
   if (denied) return denied;
+  const badOrigin = checkOrigin(req);
+  if (badOrigin) return badOrigin;
+  if (!checkRate(req, { windowMs: 60_000, max: 60, scope: 'admin-write' })) {
+    return NextResponse.json({ error: 'Too many requests. Slow down.' }, { status: 429 });
+  }
   const id = parseInt(params.id, 10);
   if (!Number.isInteger(id) || id <= 0) {
     return NextResponse.json({ error: 'Invalid order id.' }, { status: 400 });

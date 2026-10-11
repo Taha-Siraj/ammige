@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { client, ready } from '@/lib/db';
 import { requireAdmin } from '@/lib/admin-guard';
+import { checkRate } from '@/lib/rate-limit';
 
 export async function GET(req) {
   const denied = requireAdmin(req);
   if (denied) return denied;
+  if (!checkRate(req, { windowMs: 60_000, max: 120, scope: 'admin-read' })) {
+    return NextResponse.json({ error: 'Too many requests. Slow down.' }, { status: 429 });
+  }
   await ready();
   const c = client();
   const q = async (sql, args = []) => (await c.execute({ sql, args })).rows[0];

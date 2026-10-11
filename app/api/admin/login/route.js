@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server';
 import { getSetting } from '@/lib/db';
 import { issueSessionCookie } from '@/lib/auth';
 import { checkRate } from '@/lib/rate-limit';
+import { checkOrigin } from '@/lib/csrf';
 
 export async function POST(req) {
   // Brute-force protection: 8 attempts per 10 minutes per IP
   if (!checkRate(req, { windowMs: 10 * 60 * 1000, max: 8, scope: 'admin-login' })) {
     return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 });
   }
+  const badOrigin = checkOrigin(req);
+  if (badOrigin) return badOrigin;
   let body;
   try {
     body = await req.json();
