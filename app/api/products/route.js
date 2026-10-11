@@ -3,8 +3,12 @@ import {
   client, ready, parseProduct, normalizeCollection,
   isNonEmptyString, isPositiveInt,
 } from '@/lib/db';
+import { checkRate } from '@/lib/rate-limit';
 
 export async function GET(req) {
+  if (!checkRate(req, { windowMs: 60_000, max: 120, scope: 'public-read' })) {
+    return NextResponse.json({ error: 'Too many requests. Slow down.' }, { status: 429 });
+  }
   await ready();
   const { searchParams } = new URL(req.url);
   const collection = searchParams.get('collection');

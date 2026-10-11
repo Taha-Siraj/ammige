@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { client, ready, parseProduct } from '@/lib/db';
+import { checkRate } from '@/lib/rate-limit';
 
 export async function GET(req, { params }) {
+  if (!checkRate(req, { windowMs: 60_000, max: 120, scope: 'public-read' })) {
+    return NextResponse.json({ error: 'Too many requests. Slow down.' }, { status: 429 });
+  }
   const id = parseInt(params.id, 10);
   if (!Number.isInteger(id) || id <= 0) {
     return NextResponse.json({ error: 'Invalid product id.' }, { status: 400 });

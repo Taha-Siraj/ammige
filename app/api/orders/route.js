@@ -1,14 +1,18 @@
 import { NextResponse } from 'next/server';
 import {
   client, ready, parseProduct, nowISO, isNonEmptyString, isPositiveInt,
+  sanitizeText,
 } from '@/lib/db';
 import { checkRate } from '@/lib/rate-limit';
+import { checkOrigin } from '@/lib/csrf';
 
 export async function POST(req) {
   // 10 orders per IP per 10 minutes — abuse protection
   if (!checkRate(req, { windowMs: 10 * 60 * 1000, max: 10, scope: 'orders' })) {
     return NextResponse.json({ error: 'Too many orders. Please wait a few minutes.' }, { status: 429 });
   }
+  const badOrigin = checkOrigin(req);
+  if (badOrigin) return badOrigin;
 
   let body;
   try {
@@ -52,9 +56,16 @@ export async function POST(req) {
     total += p.price * qty;
   }
 
-  const payment = body.payment && isNonEmptyString(body.payment)
-    ? body.payment.trim().toLowerCase().slice(0, 20)
-    : 'cod';
+  const payment = body.payment === 'bank' ? 'bank' : 'cod';
+
+  // Sanitize stored customer data (defense-in-depth for admin rendering).
+  const cleanCustomer = {
+    name: sanitizeText(customer.name, 100),
+    phone: sanitizeText(customer.phone, 30),
+    address: sanitizeText(customer.address, 300),
+    city: sanitizeText(customer.city, 60),
+  };
+  const cleanNotes = notes && isNonEmptyString(notes) ? sanitizeText(notes, 500) : null;
 
   try {
     // Decrement stock for each line, then insert the order.
@@ -71,16 +82,11 @@ export async function POST(req) {
       sql: `INSERT INTO orders (customer, items, total, payment, notes, status, created_at)
             VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
       args: [
-        JSON.stringify({
-          name: customer.name.trim().slice(0, 100),
-          phone: customer.phone.trim().slice(0, 30),
-          address: customer.address.trim().slice(0, 300),
-          city: customer.city.trim().slice(0, 60),
-        }),
+        JSON.stringify(cleanCustomer),
         JSON.stringify(lines),
         total,
         payment,
-        notes && isNonEmptyString(notes) ? notes.trim().slice(0, 500) : null,
+        cleanNotes,
         nowISO(),
       ],
     });

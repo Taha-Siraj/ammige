@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import ProductCard from '@/components/ProductCard';
 import Reveal from '@/components/Reveal';
+import CinematicHero from '@/components/CinematicHero';
 import { client, ready, parseProduct, COLLECTIONS } from '@/lib/db';
 import BestsellersCarousel from '@/components/BestsellersCarousel';
 import NewsletterForm from '@/components/NewsletterForm';
@@ -28,11 +29,51 @@ const MARQUEE = [
   '7-day easy exchange',
 ];
 
-const LOOKBOOK = [
-  { img: '/images/product-mini.jpg', label: 'Mini · Blush Pink' },
-  { img: '/images/product-medium.jpg', label: 'Medium · Cognac' },
-  { img: '/images/product-large.jpg', label: 'Large · Classic Black' },
+const TRUST = [
+  {
+    t: 'Cash on Delivery',
+    d: 'Pay at your doorstep — available in every corner of Pakistan.',
+    icon: <><rect x="3" y="7" width="18" height="11" rx="2" /><path d="M3 10h18M7 15h4" /></>,
+  },
+  {
+    t: 'Premium Packaging',
+    d: 'Every order arrives gift-ready: dust bag, tissue & care cards.',
+    icon: <><rect x="4" y="9" width="16" height="11" rx="1.5" /><path d="M12 9v11M4 13h16M12 9s-4.5.3-5.5-2C5.7 5.4 8 4.5 9.4 5.6 10.6 6.5 12 9 12 9zm0 0s4.5.3 5.5-2c.8-1.6-1.5-2.5-2.9-1.4C13.4 6.5 12 9 12 9z" /></>,
+  },
+  {
+    t: '7-Day Exchange',
+    d: 'Changed your mind? Easy exchange within 7 days, no questions.',
+    icon: <><path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2" /><path d="M20 4v4h-4M4 20v-4h4" /></>,
+  },
+  {
+    t: 'Nationwide Delivery',
+    d: 'TCS & Leopards courier — delivered in 2–4 working days.',
+    icon: <><path d="M2 7h11v9H2zM13 10h4.5L21 13.5V16h-8" /><circle cx="6.5" cy="18" r="1.8" /><circle cx="17" cy="18" r="1.8" /></>,
+  },
+];
+
+const GALLERY = [
+  { img: '/images/collection-everyday.jpg', label: 'Everyday' },
+  { img: '/images/product-mini.jpg', label: 'Mini · Blush' },
+  { img: '/images/collection-signature.jpg', label: 'Signature' },
   { img: '/images/product-crossbody.jpg', label: 'Crossbody · Tan' },
+  { img: '/images/collection-leather.jpg', label: 'Leather' },
+  { img: '/images/product-large.jpg', label: 'Large · Noir' },
+];
+
+const TESTIMONIALS = [
+  {
+    t: 'The Heritage Tote looks even better in person — the leather, the stitching, everything feels premium. The packaging felt like opening a gift to myself.',
+    n: 'Ayesha K.', c: 'Lahore',
+  },
+  {
+    t: 'Ordered on Monday, delivered by Thursday. I was nervous about buying a bag online, but the quality is beyond what I expected at this price.',
+    n: 'Mahnoor S.', c: 'Karachi',
+  },
+  {
+    t: 'My Sahara leather tote has aged beautifully in six months. You can tell it was made by people who actually care. Worth every rupee.',
+    n: 'Fatima R.', c: 'Islamabad',
+  },
 ];
 
 export default async function Home() {
@@ -43,50 +84,7 @@ export default async function Home() {
 
   return (
     <>
-      {/* HERO */}
-      <section className="hero">
-        <div className="wrap hero-inner">
-          <div className="hero-copy">
-            <Reveal><div className="eyebrow">Ammige · Handcrafted in Pakistan</div></Reveal>
-            <Reveal delay="rv-d1">
-              <h1 className="display">Carry <em>Grace</em><br />Everywhere</h1>
-            </Reveal>
-            <Reveal delay="rv-d2">
-              <div className="hairline" />
-              <p className="lead">
-                Handbags shaped by artisans and finished with solid brass —
-                wrapped like a gift, because it is one.
-              </p>
-            </Reveal>
-            <Reveal delay="rv-d3">
-              <div className="hero-cta">
-                <Link className="btn btn-gold" href="/shop">Shop the Collection</Link>
-                <Link className="btn btn-outline" href="#collections">Explore Collections</Link>
-              </div>
-              <div className="hero-meta">
-                <div><strong>260+</strong><span>Curated Styles</span></div>
-                <div><strong>4.8</strong><span>Average Rating</span></div>
-                <div><strong>COD</strong><span>Cash on Delivery</span></div>
-              </div>
-            </Reveal>
-          </div>
-          <div className="hero-media">
-            <Reveal delay="rv-d1">
-              <div className="hero-frame">
-                <img src="/images/hero-model.jpg" alt="Pakistani model carrying an AMMIGE cognac leather handbag" fetchPriority="high" />
-              </div>
-            </Reveal>
-            <div className="hero-badge">
-              <b>The Signature Edit</b>
-              <span>New Season · 2026</span>
-            </div>
-            <div className="float-card" style={{ top: 36, right: -14 }}>
-              <span className="fc-dot" />
-              <div><b>2,400+ orders</b><span>delivered this month</span></div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <CinematicHero />
 
       {/* MARQUEE */}
       <div className="marquee" aria-hidden="true">
@@ -139,56 +137,83 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* LOOKBOOK — sizes */}
-      <section className="block" style={{ paddingTop: 0 }}>
-        <div className="wrap">
+      {/* CRAFT — dark cinematic */}
+      <section className="block craft-dark" id="story">
+        <div className="wrap craft-grid">
           <Reveal>
-            <div className="sec-head">
-              <div className="eyebrow">Find your fit</div>
-              <h2 className="display">Every size, every mood</h2>
-              <p>From minis to maxis — carried by women like you.</p>
+            <div className="craft-media">
+              <img src="/images/products/packaging.jpg" alt="AMMIGE premium packaging set — dust bag, tissue and care cards" loading="lazy" />
             </div>
           </Reveal>
-          <div className="look-grid">
-            {LOOKBOOK.map((l, i) => (
-              <Reveal key={l.img} delay={i === 1 ? 'rv-d1' : i === 2 ? 'rv-d2' : i === 3 ? 'rv-d3' : ''}>
-                <Link href="/shop" className="look-card">
-                  <img src={l.img} alt={`Pakistani model with AMMIGE bag — ${l.label}`} loading="lazy" />
-                  <span>{l.label}</span>
-                </Link>
+          <div>
+            <Reveal>
+              <div className="eyebrow">Our Craft</div>
+              <h2 className="display">Wrapped like a gift,<br />because it is one</h2>
+            </Reveal>
+            <Reveal delay="rv-d1">
+              <p className="lead-dark">
+                Every AMMIGE order leaves our studio in a complete premium packaging set —
+                tissue, dust bag, thank-you card and care guide, sealed in a strong corrugated box.
+              </p>
+            </Reveal>
+            <div className="craft-steps">
+              {[
+                ['Wrapped with care', 'Your bag is wrapped in tissue with handles and hardware protected.'],
+                ['Premium dust bag', 'Placed in a re-usable branded dust bag for lifelong storage.'],
+                ['Thank-you & care cards', 'A hand-feel thank-you card, care guide and brand hang tag inside.'],
+                ['Secure shipping box', 'Sealed in a strong corrugated box with protective fillers.'],
+              ].map(([b, p], i) => (
+                <Reveal key={b} delay={i === 1 ? 'rv-d1' : i === 2 ? 'rv-d2' : i === 3 ? 'rv-d3' : ''}>
+                  <div className="craft-step">
+                    <span className="n">{i + 1}</span>
+                    <div><b>{b}</b><p>{p}</p></div>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* TRUST BADGES */}
+      <section className="block" style={{ paddingBottom: 0 }}>
+        <div className="wrap">
+          <Reveal>
+            <div className="sec-head" style={{ marginBottom: 44 }}>
+              <div className="eyebrow">Shop with confidence</div>
+              <h2 className="display">The AMMIGE promise</h2>
+            </div>
+          </Reveal>
+          <div className="trust-row">
+            {TRUST.map((x, i) => (
+              <Reveal key={x.t} delay={i === 1 ? 'rv-d1' : i === 2 ? 'rv-d2' : i === 3 ? 'rv-d3' : ''}>
+                <div className="trust-item">
+                  <div className="trust-ic"><svg viewBox="0 0 24 24">{x.icon}</svg></div>
+                  <div><b>{x.t}</b><span>{x.d}</span></div>
+                </div>
               </Reveal>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CRAFT */}
-      <section className="block" id="story" style={{ background: '#fff' }}>
-        <div className="wrap story-grid">
+      {/* GALLERY STRIP */}
+      <section className="gallery-bleed">
+        <div className="wrap">
           <Reveal>
-            <div>
-              <div className="eyebrow">Our Craft</div>
-              <h2 className="display" style={{ fontSize: 'clamp(30px,3.6vw,44px)' }}>
-                Wrapped like a gift,<br />because it is one
-              </h2>
-              <div className="hairline" />
-              <p style={{ color: 'var(--muted)' }}>
-                Every AMMIGE order leaves our studio in a complete premium packaging set —
-                tissue, dust bag, thank-you card and care guide, sealed in a strong corrugated box.
-              </p>
-              <div className="steps">
-                <div className="step"><span className="n">1</span><div><b>Wrapped with care</b><p>Your bag is wrapped in tissue with handles and hardware protected.</p></div></div>
-                <div className="step"><span className="n">2</span><div><b>Premium dust bag</b><p>Placed in a re-usable branded dust bag for lifelong storage.</p></div></div>
-                <div className="step"><span className="n">3</span><div><b>Thank-you &amp; care cards</b><p>A hand-feel thank-you card, care guide and brand hang tag inside.</p></div></div>
-                <div className="step"><span className="n">4</span><div><b>Secure shipping box</b><p>Sealed in a strong corrugated box with protective fillers.</p></div></div>
-              </div>
+            <div className="sec-head" style={{ marginBottom: 40 }}>
+              <div className="eyebrow">The lookbook</div>
+              <h2 className="display">Carried by women like you</h2>
             </div>
           </Reveal>
-          <Reveal delay="rv-d1">
-            <div className="story-img">
-              <img src="/images/products/packaging.jpg" alt="AMMIGE premium packaging set" loading="lazy" />
-            </div>
-          </Reveal>
+        </div>
+        <div className="gallery-strip">
+          {GALLERY.map((g) => (
+            <Link key={g.img} href="/shop" className="gallery-item">
+              <img src={g.img} alt={`AMMIGE — ${g.label}`} loading="lazy" />
+              <span>{g.label}</span>
+            </Link>
+          ))}
         </div>
       </section>
 
@@ -199,18 +224,19 @@ export default async function Home() {
             <div className="sec-head">
               <div className="eyebrow">Customer love</div>
               <h2 className="display">Carried &amp; cherished</h2>
+              <p>Real words from real customers across Pakistan.</p>
             </div>
           </Reveal>
           <div className="testi-grid">
-            {[
-              { t: 'The Heritage Tote looks even better in person. The packaging felt like opening a gift to myself.', n: 'Mahnoor S.', c: 'Lahore' },
-              { t: 'Ordered on Monday, delivered by Thursday. The quality is beyond what I expected at this price.', n: 'Areeba K.', c: 'Karachi' },
-              { t: 'My Sahara leather tote has aged beautifully in six months. Worth every rupee.', n: 'Fatima R.', c: 'Islamabad' },
-            ].map((x, i) => (
+            {TESTIMONIALS.map((x, i) => (
               <Reveal key={x.n} delay={i === 1 ? 'rv-d1' : i === 2 ? 'rv-d2' : ''}>
                 <div className="testi">
+                  <div className="stars">{'★'.repeat(5)}</div>
                   <p>“{x.t}”</p>
-                  <div className="who"><b>{x.n}</b><span>{x.c}</span></div>
+                  <div className="who">
+                    <span className="avatar">{x.n.charAt(0)}</span>
+                    <div><b>{x.n}</b><span>{x.c}</span></div>
+                  </div>
                 </div>
               </Reveal>
             ))}

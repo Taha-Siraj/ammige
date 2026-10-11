@@ -2,6 +2,7 @@ import './globals.css';
 import { CartProvider } from '@/components/CartProvider';
 import Header, { WhatsAppFloat, CartDrawer } from '@/components/Header';
 import Footer from '@/components/Footer';
+import Preloader from '@/components/Preloader';
 import { getSetting } from '@/lib/db';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://ammige.com';
@@ -55,6 +56,7 @@ export default async function RootLayout({ children }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
         />
         <CartProvider>
+          <Preloader />
           <Header announcement={announcement} />
           <main>{children}</main>
           <Footer />
