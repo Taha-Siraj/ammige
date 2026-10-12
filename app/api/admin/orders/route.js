@@ -12,16 +12,50 @@ export async function GET(req) {
   await ready();
   const { searchParams } = new URL(req.url);
   const status = searchParams.get('status');
-  let sql = 'SELECT * FROM orders';
+  const payment = searchParams.get('payment');
+  const q = (searchParams.get('q') || '').trim();
+  const page = Math.max(1, parseInt(searchParams.get('page'), 10) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit'), 10) || 25));
+  const offset = (page - 1) * limit;
+
+  const where = [];
   const args = [];
   if (status) {
     if (!ORDER_STATUSES.includes(status)) {
       return NextResponse.json({ error: 'Invalid status.' }, { status: 400 });
     }
-    sql += ' WHERE status = ?';
+    where.push('status = ?');
     args.push(status);
   }
-  sql += ' ORDER BY id DESC LIMIT 200';
-  const r = await client().execute({ sql, args });
-  return NextResponse.json(r.rows.map(parseOrder));
+  if (payment) {
+    if (payment !== 'cod' && payment !== 'bank') {
+      return NextResponse.json({ error: 'Invalid payment filter.' }, { status: 400 });
+    }
+    where.push('payment = ?');
+    args.push(payment);
+  }
+  if (q) {
+    if (/^\d+$/.test(q)) {
+      where.push('id = ?');
+      args.push(Number(q));
+    } else {
+      // customer is a JSON blob: name/phone/city live inside the text.
+      where.push('customer LIKE ?');
+      args.push(`%${q}%`);
+    }
+  }
+  const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const c = client();
+  const totalR = await c.execute({ sql: `SELECT COUNT(*) AS c FROM orders ${whereSQL}`, args });
+  const total = Number(totalR.rows[0].c);
+  const r = await c.execute({
+    sql: `SELECT * FROM orders ${whereSQL} ORDER BY id DESC LIMIT ? OFFSET ?`,
+    args: [...args, limit, offset],
+  });
+  return NextResponse.json({
+    items: r.rows.map(parseOrder),
+    total,
+    page,
+    pages: Math.max(1, Math.ceil(total / limit)),
+  });
 }

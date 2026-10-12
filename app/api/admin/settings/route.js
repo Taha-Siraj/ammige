@@ -7,7 +7,10 @@ import { requireAdmin } from '@/lib/admin-guard';
 import { checkOrigin } from '@/lib/csrf';
 import { checkRate } from '@/lib/rate-limit';
 
-const ALLOWED = ['admin_password', 'whatsapp', 'announcement', 'tagline', 'brand'];
+const ALLOWED = [
+  'admin_password', 'whatsapp', 'announcement', 'tagline', 'brand',
+  'shipping_flat', 'free_shipping_threshold', 'payment_cod', 'payment_bank',
+];
 
 function adminWriteLimit(req) {
   return checkRate(req, { windowMs: 60_000, max: 60, scope: 'admin-write' });
@@ -58,6 +61,14 @@ export async function PATCH(req) {
         return NextResponse.json({ error: 'whatsapp must be a valid phone number.' }, { status: 400 });
       }
       cleaned[k] = b[k].trim();
+    } else if (k === 'shipping_flat' || k === 'free_shipping_threshold') {
+      const v = Number(b[k]);
+      if (!Number.isInteger(v) || v < 0) {
+        return NextResponse.json({ error: `${k} must be a non-negative integer (PKR).` }, { status: 400 });
+      }
+      cleaned[k] = String(v);
+    } else if (k === 'payment_cod' || k === 'payment_bank') {
+      cleaned[k] = b[k] ? '1' : '0';
     } else {
       const v = sanitizeText(b[k], 500);
       if (!v) {
