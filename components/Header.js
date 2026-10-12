@@ -306,17 +306,17 @@ export function CartDrawer() {
             const p = products[i.id];
             if (!p) return null;
             return (
-              <div className="cart-item" key={i.id}>
+              <div className="cart-item" key={i.key}>
                 <img src={p.image} alt={p.name} loading="lazy" />
                 <div className="min-w-0">
                   <b className="clamp-2">{p.name}</b>
-                  <div className="ci-meta">{fmtPKR(p.price)} each</div>
+                  <div className="ci-meta">{fmtPKR(p.price)} each{i.color ? ` · ${i.color}` : ''}</div>
                   <div className="ci-qty">
-                    <button onClick={() => setQty(i.id, i.qty - 1)} aria-label="Decrease quantity">−</button>
+                    <button onClick={() => setQty(i.key, i.qty - 1)} aria-label="Decrease quantity">−</button>
                     <b>{i.qty}</b>
-                    <button onClick={() => setQty(i.id, i.qty + 1)} aria-label="Increase quantity">+</button>
+                    <button onClick={() => setQty(i.key, i.qty + 1)} aria-label="Increase quantity">+</button>
                   </div>
-                  <button className="ci-remove" onClick={() => remove(i.id)}>Remove</button>
+                  <button className="ci-remove" onClick={() => remove(i.key)}>Remove</button>
                 </div>
                 <b className="ci-total">{fmtPKR(p.price * i.qty)}</b>
               </div>
@@ -349,7 +349,7 @@ function CrossItem({ p }) {
   const { add } = useCart();
   const [added, setAdded] = useState(false);
   const quickAdd = () => {
-    add(p.id, 1);
+    add(p.id, 1, p.colors?.[0] || null);
     setAdded(true);
     setTimeout(() => setAdded(false), 1200);
   };

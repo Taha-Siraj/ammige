@@ -65,6 +65,12 @@ export default function CheckoutPage() {
     e.preventDefault();
     setError('');
     if (items.length === 0) return;
+    // Pakistani mobile: 03xx-xxxxxxx — accept 10–13 digits after stripping separators.
+    const digits = form.phone.replace(/\D/g, '');
+    if (digits.length < 10 || digits.length > 13) {
+      setError('Please enter a valid phone number (e.g. 0300 1234567) so the courier can reach you.');
+      return;
+    }
     setPlacing(true);
     try {
       const r = await fetch('/api/orders', {
@@ -77,7 +83,7 @@ export default function CheckoutPage() {
             address: form.address.trim(),
             city: form.city.trim(),
           },
-          items: items.map((i) => ({ id: i.id, qty: i.qty })),
+          items: items.map((i) => ({ id: i.id, qty: i.qty, ...(i.color ? { color: i.color } : {}) })),
           payment,
           notes: form.notes.trim() || undefined,
           ...(couponState?.ok && couponState.coupon ? { couponCode: couponState.coupon.code } : {}),
@@ -236,11 +242,11 @@ export default function CheckoutPage() {
             const p = products[i.id];
             if (!p) return null;
             return (
-              <div className="order-line" key={i.id}>
+              <div className="order-line" key={i.key}>
                 <img src={p.image} alt={p.name} />
                 <div style={{ flex: 1 }}>
                   <b>{p.name}</b>
-                  <span>Qty {i.qty}</span>
+                  <span>Qty {i.qty}{i.color ? ` · ${i.color}` : ''}</span>
                 </div>
                 <b>{fmtPKR(p.price * i.qty)}</b>
               </div>

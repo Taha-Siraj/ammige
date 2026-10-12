@@ -5,15 +5,26 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 const CartCtx = createContext(null);
 
 export function CartProvider({ children }) {
-  const [items, setItems] = useState([]); // [{id, qty}]
+  const [items, setItems] = useState([]); // [{key, id, qty, color}]
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [wishlist, setWishlist] = useState([]); // [id]
 
+  const cartKey = (id, color) => `${id}__${color || ''}`;
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem('ammige_cart');
-      if (raw) setItems(JSON.parse(raw));
+      if (raw) {
+        // Normalize: older carts stored {id, qty} without key/color.
+        const parsed = JSON.parse(raw);
+        setItems(Array.isArray(parsed) ? parsed.map((i) => ({
+          key: i.key || cartKey(i.id, i.color),
+          id: i.id,
+          qty: i.qty,
+          color: i.color || null,
+        })) : []);
+      }
       const w = localStorage.getItem('ammige_wishlist');
       if (w) setWishlist(JSON.parse(w));
     } catch { /* ignore */ }
@@ -32,17 +43,18 @@ export function CartProvider({ children }) {
     }
   }, [wishlist, loaded]);
 
-  const add = (id, qty = 1) =>
+  const add = (id, qty = 1, color = null) =>
     setItems((prev) => {
-      const found = prev.find((i) => i.id === id);
-      if (found) return prev.map((i) => (i.id === id ? { ...i, qty: i.qty + qty } : i));
-      return [...prev, { id, qty }];
+      const key = cartKey(id, color);
+      const found = prev.find((i) => i.key === key);
+      if (found) return prev.map((i) => (i.key === key ? { ...i, qty: i.qty + qty } : i));
+      return [...prev, { key, id, qty, color }];
     });
-  const setQty = (id, qty) =>
+  const setQty = (key, qty) =>
     setItems((prev) =>
-      qty <= 0 ? prev.filter((i) => i.id !== id) : prev.map((i) => (i.id === id ? { ...i, qty } : i))
+      qty <= 0 ? prev.filter((i) => i.key !== key) : prev.map((i) => (i.key === key ? { ...i, qty } : i))
     );
-  const remove = (id) => setItems((prev) => prev.filter((i) => i.id !== id));
+  const remove = (key) => setItems((prev) => prev.filter((i) => i.key !== key));
   const clear = () => setItems([]);
   const count = useMemo(() => items.reduce((s, i) => s + i.qty, 0), [items]);
 

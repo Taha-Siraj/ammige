@@ -5,67 +5,9 @@ import { useEffect, useRef, useState } from 'react';
 import { fmtPKR, useCart } from './CartProvider';
 
 /**
- * Per-collection hover pools. `hoverImage` is structured so real 2nd-angle
- * photos can replace the pool entries later without touching the logic.
+ * Hover image: the product's OWN second photo (`image2`). Shown only when the
+ * admin/user uploaded a second photo that differs from the main one.
  */
-const HOVER_POOLS = {
-  everyday: [
-    '/images/products/everyday-01.jpg',
-    '/images/products/everyday-02.jpg',
-    '/images/products/everyday-03.jpg',
-    '/images/products/everyday-04.jpg',
-    '/images/products/everyday-05.jpg',
-    '/images/products/everyday-06.jpg',
-    '/images/products/everyday-07.jpg',
-    '/images/products/everyday-08.jpg',
-  ],
-  signature: [
-    '/images/products/signature-01.jpg',
-    '/images/products/signature-02.jpg',
-    '/images/products/signature-03.jpg',
-    '/images/products/signature-04.jpg',
-    '/images/products/signature-05.jpg',
-    '/images/products/signature-06.jpg',
-    '/images/products/signature-07.jpg',
-    '/images/products/signature-08.jpg',
-  ],
-  leather: [
-    '/images/products/leather-01.jpg',
-    '/images/products/leather-02.jpg',
-    '/images/products/leather-03.jpg',
-    '/images/products/leather-04.jpg',
-    '/images/products/leather-05.jpg',
-    '/images/products/leather-06.jpg',
-    '/images/products/leather-07.jpg',
-    '/images/products/leather-08.jpg',
-  ],
-};
-
-const LIFESTYLE_SHOTS = new Set([
-  '/images/hero-model.jpg',
-  '/images/product-mini.jpg',
-  '/images/product-medium.jpg',
-  '/images/product-large.jpg',
-  '/images/product-crossbody.jpg',
-]);
-
-/**
- * Pick the hover image: the NEXT image in the same collection pool
- * (cyclical, guaranteed different). If the card currently shows a
- * model/lifestyle shot, hover to a product shot from its collection.
- */
-function getHoverImage(p) {
-  const pool = HOVER_POOLS[p.collection];
-  if (!pool || pool.length === 0) return null;
-  const idNum = typeof p.id === 'number' ? p.id : 0;
-  if (LIFESTYLE_SHOTS.has(p.image)) {
-    return pool[Math.abs(idNum) % pool.length];
-  }
-  const idx = pool.indexOf(p.image);
-  const next = idx === -1 ? Math.abs(idNum) % pool.length : (idx + 1) % pool.length;
-  const hoverImage = pool[next];
-  return hoverImage === p.image ? pool[(next + 1) % pool.length] : hoverImage;
-}
 
 const TILT_MAX = 7;
 
@@ -76,7 +18,7 @@ export default function ProductCard({ p }) {
   const cardRef = useRef(null);
   const wished = isWished(p.id);
   const discount = p.old_price ? Math.round((1 - p.price / p.old_price) * 100) : 0;
-  const hoverImage = getHoverImage(p);
+  const hoverImage = p.image2 && p.image2 !== p.image ? p.image2 : null;
 
   // Desktop + fine pointer only: hover swap + tilt need a real cursor.
   useEffect(() => {
@@ -152,7 +94,7 @@ export default function ProductCard({ p }) {
   const quickAdd = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    add(p.id, 1);
+    add(p.id, 1, p.colors?.[0] || null);
     setAdded(true);
     setTimeout(() => setAdded(false), 1300);
   };

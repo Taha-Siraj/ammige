@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCart, fmtPKR } from './CartProvider';
 import { COLOR_HEX } from './colorHex';
 import ProductCard from './ProductCard';
@@ -43,7 +44,8 @@ function Accordion({ items }) {
 }
 
 export default function ProductDetail({ p, related }) {
-  const { add, setOpen, toggleWish, isWished } = useCart();
+  const router = useRouter();
+  const { add, toggleWish, isWished } = useCart();
   const [qty, setQtyLocal] = useState(1);
   const [color, setColor] = useState(p.colors?.[0] || null);
   const [added, setAdded] = useState(false);
@@ -55,7 +57,7 @@ export default function ProductDetail({ p, related }) {
 
   const discount = p.old_price ? Math.round((1 - p.price / p.old_price) * 100) : 0;
   const inst = Math.round(p.price / 3);
-  const gallery = [p.image];
+  const gallery = [p.image, p.image2 && p.image2 !== p.image ? p.image2 : null].filter(Boolean);
 
   useEffect(() => {
     const el = ctaRef.current;
@@ -74,9 +76,14 @@ export default function ProductDetail({ p, related }) {
   }, [lightbox]);
 
   const handleAdd = () => {
-    add(p.id, qty);
+    add(p.id, qty, color);
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
+  };
+
+  const handleBuyNow = () => {
+    add(p.id, qty, color);
+    router.push('/checkout');
   };
 
   const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
@@ -102,7 +109,7 @@ export default function ProductDetail({ p, related }) {
         <div className="pd-gallery">
           <div className="pd-main" onClick={() => setLightbox(true)} role="button" tabIndex={0}
                aria-label="View larger image" onKeyDown={(e) => e.key === 'Enter' && setLightbox(true)}>
-            <img src={p.image} alt={alt} fetchpriority="high" />
+            <img src={p.image} alt={alt} fetchPriority="high" />
           </div>
           {gallery.length > 1 && (
             <div className="pd-thumbs">
@@ -166,7 +173,7 @@ export default function ProductDetail({ p, related }) {
               {p.stock === 0 ? 'Out of Stock' : added ? 'Added ✓' : 'Add to Bag'}
             </button>
           </div>
-          <button className="btn btn-outline" style={{ width: '100%' }} onClick={() => { add(p.id, qty); setOpen(true); }} disabled={p.stock === 0}>
+          <button className="btn btn-outline" style={{ width: '100%' }} onClick={handleBuyNow} disabled={p.stock === 0}>
             Buy Now
           </button>
           <div className="pd-wish-row">
