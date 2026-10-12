@@ -82,6 +82,10 @@ export async function POST(req) {
   if (image && !isSafeImageUrl(image)) {
     return NextResponse.json({ error: 'image must be a relative path or http(s) URL.' }, { status: 400 });
   }
+  const image2 = sanitizeText(b.image2, 300);
+  if (image2 && !isSafeImageUrl(image2)) {
+    return NextResponse.json({ error: 'image2 must be a relative path or http(s) URL.' }, { status: 400 });
+  }
 
   await ready();
   const c = client();
@@ -95,8 +99,8 @@ export async function POST(req) {
   try {
     const ins = await c.execute({
       sql: `INSERT INTO products (sku, name, collection, price, old_price, colors, material,
-              description, image, rating, reviews, badge, stock, active, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              description, image, image2, rating, reviews, badge, stock, active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         sku,
         name,
@@ -107,6 +111,7 @@ export async function POST(req) {
         sanitizeText(b.material, 120) || null,
         sanitizeText(b.description, 2000) || null,
         image || null,
+        image2 || null,
         typeof b.rating === 'number' ? Math.min(5, Math.max(0, b.rating)) : 0,
         isPositiveInt(b.reviews) ? b.reviews : 0,
         sanitizeText(b.badge, 20) || null,

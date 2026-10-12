@@ -1126,6 +1126,7 @@ function ProductEditor({ product, onClose, onSaved }) {
     material: product?.material || '',
     description: product?.description || '',
     image: product?.image || '',
+    image2: product?.image2 || '',
     stock: product?.stock ?? 50,
     badge: product?.badge || '',
     active: product ? (product.active ? 1 : 0) : 1,
@@ -1197,6 +1198,7 @@ function ProductEditor({ product, onClose, onSaved }) {
           </div>
           <div className="f-group"><label>Material</label><input value={f.material} onChange={set('material')} /></div>
           <div className="f-group"><label>Image URL</label><input value={f.image} onChange={set('image')} placeholder="/images/products/..." /></div>
+          <div className="f-group"><label>Hover Image URL (2nd photo — shows on hover)</label><input value={f.image2} onChange={set('image2')} placeholder="/images/products/... (optional)" /></div>
           <div className="f-group"><label>Description</label><textarea rows={4} value={f.description} onChange={set('description')} /></div>
           <div className="f-group">
             <label>Status</label>
