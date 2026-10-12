@@ -17,15 +17,22 @@ export default async function sitemap() {
   try {
     await ready();
     const r = await client().execute({
-      sql: 'SELECT id FROM products WHERE active = 1 ORDER BY id DESC LIMIT 500',
+      sql: 'SELECT id, name, image FROM products WHERE active = 1 ORDER BY id DESC LIMIT 500',
     });
     for (const row of r.rows) {
-      urls.push({
+      const entry = {
         url: `${SITE_URL}/product/${row.id}`,
         lastModified: new Date(),
         changeFrequency: 'weekly',
         priority: 0.7,
-      });
+      };
+      if (row.image) {
+        const img = String(row.image).startsWith('http')
+          ? row.image
+          : `${SITE_URL}${row.image.startsWith('/') ? row.image : `/${row.image}`}`;
+        entry.images = [img];
+      }
+      urls.push(entry);
     }
   } catch {
     // sitemap still works without product URLs

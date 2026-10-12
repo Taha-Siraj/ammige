@@ -12,21 +12,40 @@ export async function generateMetadata() {
   const tagline = (await getSetting('tagline')) || 'Carry Grace Everywhere';
   const title = `${brand} — Premium Women's Handbags in Pakistan | ${tagline}`;
   const description =
-    'AMMIGE — premium handcrafted women\u2019s handbags from Pakistan. Everyday, Signature and Leather collections with cash on delivery nationwide and premium gift packaging.';
+    'Shop AMMIGE premium handcrafted women\u2019s handbags online in Pakistan — Everyday, Signature and Leather collections. Cash on delivery nationwide, 7-day easy exchange, premium gift packaging.';
   return {
+    // metadataBase lets Next.js resolve canonical + OG URLs to absolute URLs.
     metadataBase: new URL(SITE_URL),
-    title,
+    title: {
+      default: title,
+      template: '%s | AMMIGE — Premium Handbags Pakistan',
+    },
     description,
-    keywords: ['handbags Pakistan', 'women bags', 'leather handbags', 'AMMIGE', 'ladies bags online Pakistan', 'clutch', 'tote bag'],
+    keywords: [
+      'handbags Pakistan',
+      'women bags Pakistan',
+      'leather handbags Pakistan',
+      'ladies bags online Pakistan',
+      'tote bag Pakistan',
+      'clutch bags Pakistan',
+      'AMMIGE',
+      'handbag price in Pakistan',
+      'cash on delivery handbags',
+    ],
     openGraph: {
       type: 'website',
       url: SITE_URL,
       siteName: brand,
       title,
       description,
-      images: [{ url: '/images/hero-model.jpg', width: 1200, height: 800, alt: 'AMMIGE premium handbag' }],
+      images: [{ url: '/images/hero-model.jpg', width: 1200, height: 800, alt: 'AMMIGE premium handbag carried by model — Pakistan' }],
     },
-    twitter: { card: 'summary_large_image', title, description, images: ['/images/hero-model.jpg'] },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ['/images/hero-model.jpg'],
+    },
     robots: { index: true, follow: true },
   };
 }

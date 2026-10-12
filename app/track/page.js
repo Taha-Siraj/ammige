@@ -54,6 +54,7 @@ function TrackInner() {
           </p>
         )}
         <form
+          className="track-form"
           style={{ display: 'flex', gap: 12, marginTop: 24 }}
           onSubmit={(e) => { e.preventDefault(); lookup(id.trim()); }}
         >

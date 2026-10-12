@@ -98,7 +98,7 @@ export default async function Home() {
             <div className="sec-head">
               <div className="eyebrow">Our Collections</div>
               <h2 className="display">Three worlds, one signature</h2>
-              <p>From daily companions to couture statements — every AMMIGE piece is designed to be carried for years.</p>
+              <p>Structured leather for the boardroom, embellished minis for shaadi season, and totes that survive Karachi traffic — every piece designed in Pakistan, made to be carried for years.</p>
             </div>
           </Reveal>
           <div className="collections-grid">
@@ -130,10 +130,35 @@ export default async function Home() {
             <div className="sec-head">
               <div className="eyebrow">Most loved</div>
               <h2 className="display">Bestsellers</h2>
-              <p>The pieces our customers reach for again and again.</p>
+              <p>The totes, crossbodies and minis that Lahore, Karachi and Islamabad keep reordering.</p>
             </div>
           </Reveal>
           <BestsellersCarousel items={bestsellers} />
+        </div>
+      </section>
+
+      {/* SHOP BY OCCASION */}
+      <section className="block" style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <Reveal>
+            <div className="sec-head">
+              <div className="eyebrow">Find your fit</div>
+              <h2 className="display">Shop by the day you&apos;re having</h2>
+            </div>
+          </Reveal>
+          <div className="trust-row occasion-row">
+            {[
+              { t: 'For work days', d: 'Structured totes & satchels that fit a 13-inch laptop and your lunch.', href: '/shop?q=tote' },
+              { t: 'For shaadis', d: 'Embellished minis and clutches made for mehndis and baraats.', href: '/shop?q=clutch' },
+              { t: 'For every day', d: 'Light crossbodies and hobos for university, errands and chai runs.', href: '/shop?q=crossbody' },
+            ].map((x, i) => (
+              <Reveal key={x.t} delay={i === 1 ? 'rv-d1' : i === 2 ? 'rv-d2' : ''}>
+                <Link href={x.href} className="trust-item" style={{ textDecoration: 'none' }}>
+                  <div><b>{x.t}</b><span>{x.d}</span><span style={{ color: 'var(--gold-deep)', fontWeight: 500, marginTop: 8, display: 'block' }}>Shop now →</span></div>
+                </Link>
+              </Reveal>
+            ))}
+          </div>
         </div>
       </section>
 
