@@ -1,66 +1,223 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCart, fmtPKR } from './CartProvider';
 
-export default function Header({ announcement }) {
-  const { count, setOpen } = useCart();
-  const [scrolled, setScrolled] = useState(false);
-  const [menu, setMenu] = useState(false);
+const ANNOUNCEMENTS = [
+  'Free delivery across Pakistan on orders over Rs 5,000',
+  'Cash on Delivery available nationwide',
+  '7-day easy exchange — no questions asked',
+];
+
+const NAV = [
+  { href: '/shop', label: 'Shop All' },
+  { href: '/shop?collection=everyday', label: 'Everyday' },
+  { href: '/shop?collection=signature', label: 'Signature' },
+  { href: '/shop?collection=leather', label: 'Leather' },
+  { href: '/track', label: 'Track Order' },
+];
+
+const POPULAR_SEARCHES = ['Tote', 'Crossbody', 'Leather', 'Mini', 'Clutch'];
+
+function IconSearch() {
+  return (
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+  );
+}
+function IconHeart({ filled }) {
+  return (
+    <svg viewBox="0 0 24 24" style={filled ? { fill: 'var(--gold-deep)', stroke: 'var(--gold-deep)' } : undefined}>
+      <path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8 3.6 5 6.8 5c2 0 3.7 1.1 5.2 3 1.5-1.9 3.2-3 5.2-3 3.2 0 5.3 3 4.1 6.3-1.8 4.6-9.3 9.2-9.3 9.2z" />
+    </svg>
+  );
+}
+function IconBag() {
+  return (
+    <svg viewBox="0 0 24 24"><path d="M6 8h15l-1.5 9h-12z" /><path d="M6 8l-1-4H2" /><circle cx="9" cy="20" r="1.4" /><circle cx="17" cy="20" r="1.4" /></svg>
+  );
+}
+
+function SearchOverlay({ open, onClose }) {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState([]);
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
+    if (open) {
+      setQ('');
+      setResults([]);
+      setTimeout(() => inputRef.current?.focus(), 60);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [open ]);
+
+  useEffect(() => {
+    if (!open || !q.trim()) { setResults([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const r = await fetch(`/api/products?q=${encodeURIComponent(q.trim())}&limit=6`);
+        const d = await r.json();
+        setResults(d.items || []);
+      } catch { setResults([]); }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q, open]);
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    if (open) window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div className="search-overlay" role="dialog" aria-modal="true" aria-label="Search">
+      <div className="search-sheet">
+        <button className="icon-btn search-close" aria-label="Close search" onClick={onClose}>
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+        <div className="eyebrow">Search AMMIGE</div>
+        <div className="search-big">
+          <IconSearch />
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Try &quot;tote&quot;, &quot;leather&quot;, &quot;mini&quot;…"
+            aria-label="Search products"
+          />
+        </div>
+        {!q.trim() && (
+          <div className="search-popular">
+            <span>Popular:</span>
+            {POPULAR_SEARCHES.map((s) => (
+              <button key={s} onClick={() => setQ(s)}>{s}</button>
+            ))}
+          </div>
+        )}
+        {q.trim() !== '' && (
+          <div className="search-results">
+            {results.length === 0 ? (
+              <p className="search-none">No matches for “{q}”. Try “tote” or “leather”.</p>
+            ) : (
+              results.map((p) => (
+                <Link key={p.id} href={`/product/${p.id}`} className="search-hit" onClick={onClose}>
+                  <img src={p.image} alt={p.name} loading="lazy" />
+                  <div className="min-w-0">
+                    <b className="clamp-1">{p.name}</b>
+                    <span>{fmtPKR(p.price)}</span>
+                  </div>
+                </Link>
+              ))
+            )}
+            {results.length > 0 && (
+              <Link href={`/shop?q=${encodeURIComponent(q.trim())}`} className="btn btn-outline btn-sm search-all" onClick={onClose}>
+                View all results
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function Header({ announcement }) {
+  const { count, setOpen, wishCount } = useCart();
+  const [scrolled, setScrolled] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [ai, setAi] = useState(0);
+
+  const msgs = announcement ? [announcement, ANNOUNCEMENTS[1], ANNOUNCEMENTS[2]] : ANNOUNCEMENTS;
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  useEffect(() => {
+    const t = setInterval(() => setAi((i) => (i + 1) % msgs.length), 4500);
+    return () => clearInterval(t);
+  }, [msgs.length]);
+
+  useEffect(() => {
+    document.body.style.overflow = menu ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [menu]);
+
   return (
     <>
-      <div className="announce">{announcement}</div>
-      <header className={`site-header ${scrolled ? 'scrolled' : ''}`}>
-        <div className="wrap nav">
-          <button
-            className="icon-btn mobile-toggle"
-            aria-label="Menu"
-            onClick={() => setMenu(true)}
-          >
-            <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
-          </button>
-          <Link href="/" className="logo">AMMI<em>GE</em></Link>
-          <nav>
-            <ul className="nav-links">
-              <li><Link href="/">Home</Link></li>
-              <li><Link href="/shop">Shop</Link></li>
-              <li><Link href="/shop?collection=everyday">Everyday</Link></li>
-              <li><Link href="/shop?collection=signature">Signature</Link></li>
-              <li><Link href="/shop?collection=leather">Leather</Link></li>
-              <li><Link href="/track">Track Order</Link></li>
-            </ul>
-          </nav>
-          <div className="nav-icons">
-            <button className="icon-btn" aria-label="Cart" onClick={() => setOpen(true)}>
-              <svg viewBox="0 0 24 24"><path d="M6 8h15l-1.5 9h-12z" /><path d="M6 8l-1-4H2" /><circle cx="9" cy="20" r="1.4" /><circle cx="17" cy="20" r="1.4" /></svg>
-              {count > 0 && <span className="cart-count">{count}</span>}
+      <div className={`announce ${scrolled ? 'hide' : ''}`} aria-live="polite">
+        <span key={ai} className="announce-msg">{msgs[ai]}</span>
+      </div>
+      <header className={`site-header ${scrolled ? 'scrolled slim' : ''}`}>
+        <div className="wrap hd-top">
+          <div className="hd-left">
+            <button className="icon-btn mobile-toggle" aria-label="Open menu" onClick={() => setMenu(true)}>
+              <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+            </button>
+            <button className="icon-btn hd-search-btn" aria-label="Search" onClick={() => setSearchOpen(true)}>
+              <IconSearch />
+            </button>
+          </div>
+          <Link href="/" className="logo hd-logo" aria-label="AMMIGE home">AMMI<em>GE</em></Link>
+          <div className="hd-icons">
+            <button className="icon-btn hd-search-btn-m" aria-label="Search" onClick={() => setSearchOpen(true)}>
+              <IconSearch />
+            </button>
+            <Link href="/wishlist" className="icon-btn" aria-label={`Wishlist, ${wishCount} items`}>
+              <IconHeart />
+              {wishCount > 0 && <span className="count-badge">{wishCount}</span>}
+            </Link>
+            <button className="icon-btn" aria-label={`Shopping bag, ${count} items`} onClick={() => setOpen(true)}>
+              <IconBag />
+              {count > 0 && <span className="count-badge">{count}</span>}
             </button>
           </div>
         </div>
+        <nav className="hd-nav" aria-label="Categories">
+          <div className="wrap">
+            <ul>
+              {NAV.map((n) => (
+                <li key={n.href}><Link href={n.href}>{n.label}</Link></li>
+              ))}
+            </ul>
+          </div>
+        </nav>
       </header>
-      <div className={`mobile-menu ${menu ? 'open' : ''}`}>
-        <button
-          className="icon-btn"
-          aria-label="Close"
-          onClick={() => setMenu(false)}
-          style={{ position: 'absolute', top: 24, right: 24 }}
-        >
-          <svg viewBox="0 0 24 24" style={{ stroke: '#fff' }}><path d="M6 6l12 12M18 6L6 18" /></svg>
-        </button>
-        {['/', '/shop', '/track'].map((h, i) => (
-          <Link key={h} href={h} onClick={() => setMenu(false)}>
-            {['Home', 'Shop', 'Track Order'][i]}
-          </Link>
-        ))}
-      </div>
+
+      <div className={`drawer-scrim ${menu ? 'open' : ''}`} onClick={() => setMenu(false)} aria-hidden="true" />
+      <aside className={`mobile-drawer ${menu ? 'open' : ''}`} aria-hidden={!menu} aria-label="Menu">
+        <div className="drawer-head">
+          <span className="logo">AMMI<em>GE</em></span>
+          <button className="icon-btn" aria-label="Close menu" onClick={() => setMenu(false)}>
+            <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+        <nav>
+          <Link href="/shop" onClick={() => setMenu(false)}>Shop All</Link>
+          <div className="drawer-sub">Collections</div>
+          <Link href="/shop?collection=everyday" onClick={() => setMenu(false)}>Everyday</Link>
+          <Link href="/shop?collection=signature" onClick={() => setMenu(false)}>Signature</Link>
+          <Link href="/shop?collection=leather" onClick={() => setMenu(false)}>Leather</Link>
+          <div className="drawer-sub">Help</div>
+          <Link href="/track" onClick={() => setMenu(false)}>Track Order</Link>
+          <Link href="/wishlist" onClick={() => setMenu(false)}>Wishlist{wishCount > 0 ? ` (${wishCount})` : ''}</Link>
+          <Link href="/faq" onClick={() => setMenu(false)}>FAQs</Link>
+          <Link href="/contact" onClick={() => setMenu(false)}>Contact</Link>
+        </nav>
+        <div className="drawer-foot">
+          <span>Cash on Delivery nationwide</span>
+        </div>
+      </aside>
+
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </>
   );
 }
@@ -80,36 +237,61 @@ export function WhatsAppFloat({ number }) {
   );
 }
 
+const FREE_SHIP = 5000;
+
 export function CartDrawer() {
-  const { items, setQty, remove, open, setOpen, clear } = useCart();
+  const { items, setQty, remove, open, setOpen } = useCart();
   const [products, setProducts] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [cross, setCross] = useState([]);
 
   useEffect(() => {
     if (!open || items.length === 0) return;
-    setLoading(true);
     Promise.all(items.map((i) => fetch(`/api/products/${i.id}`).then((r) => r.json())))
       .then((list) => {
         const map = {};
         list.forEach((p) => { if (p && p.id) map[p.id] = p; });
         setProducts(map);
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
+  }, [open, items]);
+
+  useEffect(() => {
+    if (!open) return;
+    const ids = items.map((i) => i.id).join(',');
+    fetch(`/api/products?limit=100${ids ? '' : ''}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const inCart = new Set(items.map((i) => i.id));
+        const pool = (d.items || []).filter((p) => !inCart.has(p.id));
+        setCross(pool.slice(0, 3));
+      })
+      .catch(() => {});
   }, [open, items]);
 
   const total = items.reduce((s, i) => s + (products[i.id]?.price || 0) * i.qty, 0);
+  const away = Math.max(0, FREE_SHIP - total);
+  const pct = Math.min(100, Math.round((total / FREE_SHIP) * 100));
 
   return (
     <>
       <div className={`cart-overlay ${open ? 'open' : ''}`} onClick={() => setOpen(false)} />
-      <aside className={`cart-drawer ${open ? 'open' : ''}`} aria-hidden={!open}>
+      <aside className={`cart-drawer ${open ? 'open' : ''}`} aria-hidden={!open} aria-label="Shopping bag">
         <div className="cart-head">
           <h3>Your Bag ({items.reduce((s, i) => s + i.qty, 0)})</h3>
-          <button className="icon-btn" aria-label="Close cart" onClick={() => setOpen(false)}>
+          <button className="icon-btn" aria-label="Close bag" onClick={() => setOpen(false)}>
             <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
+        {items.length > 0 && (
+          <div className="ship-progress">
+            {away > 0 ? (
+              <p><b>{fmtPKR(away)}</b> away from <b>FREE</b> nationwide delivery</p>
+            ) : (
+              <p className="unlocked">You&apos;ve unlocked <b>FREE</b> delivery</p>
+            )}
+            <div className="ship-bar"><span style={{ width: `${pct}%` }} /></div>
+          </div>
+        )}
         <div className="cart-items">
           {items.length === 0 && (
             <div className="empty">
@@ -125,31 +307,62 @@ export function CartDrawer() {
             if (!p) return null;
             return (
               <div className="cart-item" key={i.id}>
-                <img src={p.image} alt={p.name} />
-                <div>
-                  <b>{p.name}</b>
+                <img src={p.image} alt={p.name} loading="lazy" />
+                <div className="min-w-0">
+                  <b className="clamp-2">{p.name}</b>
                   <div className="ci-meta">{fmtPKR(p.price)} each</div>
                   <div className="ci-qty">
-                    <button onClick={() => setQty(i.id, i.qty - 1)} aria-label="Decrease">−</button>
+                    <button onClick={() => setQty(i.id, i.qty - 1)} aria-label="Decrease quantity">−</button>
                     <b>{i.qty}</b>
-                    <button onClick={() => setQty(i.id, i.qty + 1)} aria-label="Increase">+</button>
+                    <button onClick={() => setQty(i.id, i.qty + 1)} aria-label="Increase quantity">+</button>
                   </div>
                   <button className="ci-remove" onClick={() => remove(i.id)}>Remove</button>
                 </div>
-                <b>{fmtPKR(p.price * i.qty)}</b>
+                <b className="ci-total">{fmtPKR(p.price * i.qty)}</b>
               </div>
             );
           })}
         </div>
+        {items.length > 0 && cross.length > 0 && (
+          <div className="cross-sell">
+            <div className="eyebrow">Pairs well with</div>
+            {cross.map((p) => (
+              <CrossItem key={p.id} p={p} />
+            ))}
+          </div>
+        )}
         {items.length > 0 && (
           <div className="cart-foot">
-            <div className="cart-total"><span>Total</span><span>{fmtPKR(total)}</span></div>
+            <div className="cart-total"><span>Subtotal</span><span>{fmtPKR(total)}</span></div>
+            <p className="cart-note">Delivery calculated at checkout · COD available</p>
             <Link href="/checkout" className="btn btn-gold" style={{ width: '100%' }} onClick={() => setOpen(false)}>
-              Checkout
+              Checkout Securely
             </Link>
           </div>
         )}
       </aside>
     </>
+  );
+}
+
+function CrossItem({ p }) {
+  const { add } = useCart();
+  const [added, setAdded] = useState(false);
+  const quickAdd = () => {
+    add(p.id, 1);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1200);
+  };
+  return (
+    <div className="cross-item">
+      <Link href={`/product/${p.id}`}>
+        <img src={p.image} alt={p.name} loading="lazy" />
+      </Link>
+      <div className="min-w-0">
+        <Link href={`/product/${p.id}`} className="clamp-2 cross-name">{p.name}</Link>
+        <span className="cross-price">{fmtPKR(p.price)}</span>
+      </div>
+      <button className="btn btn-outline btn-sm" onClick={quickAdd}>{added ? 'Added ✓' : 'Add'}</button>
+    </div>
   );
 }

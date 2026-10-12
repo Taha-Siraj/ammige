@@ -8,11 +8,14 @@ export function CartProvider({ children }) {
   const [items, setItems] = useState([]); // [{id, qty}]
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [wishlist, setWishlist] = useState([]); // [id]
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem('ammige_cart');
       if (raw) setItems(JSON.parse(raw));
+      const w = localStorage.getItem('ammige_wishlist');
+      if (w) setWishlist(JSON.parse(w));
     } catch { /* ignore */ }
     setLoaded(true);
   }, []);
@@ -22,6 +25,12 @@ export function CartProvider({ children }) {
       try { localStorage.setItem('ammige_cart', JSON.stringify(items)); } catch { /* ignore */ }
     }
   }, [items, loaded]);
+
+  useEffect(() => {
+    if (loaded) {
+      try { localStorage.setItem('ammige_wishlist', JSON.stringify(wishlist)); } catch { /* ignore */ }
+    }
+  }, [wishlist, loaded]);
 
   const add = (id, qty = 1) =>
     setItems((prev) => {
@@ -37,9 +46,15 @@ export function CartProvider({ children }) {
   const clear = () => setItems([]);
   const count = useMemo(() => items.reduce((s, i) => s + i.qty, 0), [items]);
 
+  const toggleWish = (id) =>
+    setWishlist((prev) => (prev.includes(id) ? prev.filter((w) => w !== id) : [...prev, id]));
+  const isWished = (id) => wishlist.includes(id);
+  const wishCount = wishlist.length;
+
   const value = useMemo(
-    () => ({ items, add, setQty, remove, clear, count, open, setOpen, loaded }),
-    [items, count, open, loaded]
+    () => ({ items, add, setQty, remove, clear, count, open, setOpen, loaded,
+             wishlist, toggleWish, isWished, wishCount }),
+    [items, count, open, loaded, wishlist]
   );
   return <CartCtx.Provider value={value}>{children}</CartCtx.Provider>;
 }

@@ -1,28 +1,77 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useCart, fmtPKR } from './CartProvider';
+import { COLOR_HEX } from './colorHex';
 import ProductCard from './ProductCard';
 
-const COLOR_HEX = {
-  'Sand Beige': '#D9C7A7', 'Cognac': '#9A5B33', 'Classic Black': '#1c1c1c',
-  'Ivory White': '#F5F0E6', 'Taupe': '#8B7D6B', 'Blush Pink': '#E8B4B8',
-  'Olive Green': '#6B7A3F', 'Navy Blue': '#1F2A44', 'Camel': '#C19A6B',
-  'Burgundy': '#6D1F2C', 'Charcoal Grey': '#3E3E3E', 'Tan': '#D2B48C',
-  'Mustard Yellow': '#D9A62E', 'Teal': '#2A7F7F', 'Maroon': '#5C1A24',
-  'Chocolate Brown': '#4A2E1B', 'Dusty Rose': '#C48A8A', 'Sage Green': '#9CAF88',
-  'Mauve': '#B784A7', 'Cream': '#FFF8E7', 'Espresso': '#3A2418',
-  'Slate Grey': '#5D6D7E', 'Terracotta': '#C1694A', 'Wine Red': '#722F37',
-};
+function measurements(name) {
+  const n = (name || '').toLowerCase();
+  if (/mini/.test(n)) return '22 × 16 × 9 cm';
+  if (/\blarge\b/.test(n)) return '34 × 28 × 13 cm';
+  if (/tote/.test(n)) return '32 × 27 × 13 cm';
+  if (/crossbody|clutch|minaudiere|flap/.test(n)) return '24 × 15 × 7 cm';
+  if (/hobo|bucket|satchel|doctor/.test(n)) return '30 × 24 × 12 cm';
+  return '28 × 20 × 10 cm';
+}
+
+function strapInfo(name) {
+  const n = (name || '').toLowerCase();
+  if (/crossbody/.test(n)) return 'Adjustable crossbody strap (drop ~58 cm) + top handles';
+  if (/tote|shopper/.test(n)) return 'Twin top handles (drop ~26 cm)';
+  if (/clutch|minaudiere/.test(n)) return 'Detachable chain strap (drop ~55 cm)';
+  if (/hobo|shoulder/.test(n)) return 'Single shoulder strap (drop ~30 cm)';
+  return 'Top handles + detachable shoulder strap';
+}
+
+function Accordion({ items }) {
+  const [open, setOpen] = useState(0);
+  return (
+    <div className="accordion">
+      {items.map((it, i) => (
+        <div key={it.title} className={`acc-item ${open === i ? 'open' : ''}`}>
+          <button className="acc-q" onClick={() => setOpen(open === i ? -1 : i)} aria-expanded={open === i}>
+            {it.title}
+            <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
+          </button>
+          <div className="acc-a"><div className="acc-a-inner"><div className="acc-body">{it.body}</div></div></div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function ProductDetail({ p, related }) {
-  const { add, setOpen } = useCart();
+  const { add, setOpen, toggleWish, isWished } = useCart();
   const [qty, setQtyLocal] = useState(1);
   const [color, setColor] = useState(p.colors?.[0] || null);
   const [added, setAdded] = useState(false);
+  const [lightbox, setLightbox] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showSticky, setShowSticky] = useState(false);
+  const ctaRef = useRef(null);
+  const wished = isWished(p.id);
 
   const discount = p.old_price ? Math.round((1 - p.price / p.old_price) * 100) : 0;
+  const inst = Math.round(p.price / 3);
+  const gallery = [p.image];
+
+  useEffect(() => {
+    const el = ctaRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([e]) => setShowSticky(!e.isIntersecting && window.scrollY > 400), { threshold: 0 });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e) => { if (e.key === 'Escape') setLightbox(false); };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+  }, [lightbox]);
 
   const handleAdd = () => {
     add(p.id, qty);
@@ -30,21 +79,46 @@ export default function ProductDetail({ p, related }) {
     setTimeout(() => setAdded(false), 1600);
   };
 
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch { /* ignore */ }
+  };
+
+  const alt = `${p.name} — ${p.material || 'premium'} handbag in ${p.colors?.[0] || 'assorted colours'}, AMMIGE Pakistan`;
+
   return (
     <div className="wrap">
-      <div style={{ paddingTop: 28, fontSize: 13, color: 'var(--muted)' }}>
-        <Link href="/">Home</Link> &nbsp;/&nbsp; <Link href="/shop">Shop</Link> &nbsp;/&nbsp; {p.name}
-      </div>
+      <nav aria-label="Breadcrumb" style={{ paddingTop: 28, fontSize: 13, color: 'var(--muted)' }}>
+        <Link href="/">Home</Link> &nbsp;/&nbsp; <Link href="/shop">Shop</Link> &nbsp;/&nbsp;{' '}
+        <Link href={`/shop?collection=${p.collection}`} style={{ textTransform: 'capitalize' }}>{p.collection}</Link>
+        &nbsp;/&nbsp; <span className="ow-anywhere" aria-current="page">{p.name}</span>
+      </nav>
+
       <div className="pd-grid">
-        <div className="pd-media">
-          <div className="pd-main-img">
-            <img src={p.image} alt={p.name} />
+        <div className="pd-gallery">
+          <div className="pd-main" onClick={() => setLightbox(true)} role="button" tabIndex={0}
+               aria-label="View larger image" onKeyDown={(e) => e.key === 'Enter' && setLightbox(true)}>
+            <img src={p.image} alt={alt} fetchpriority="high" />
           </div>
+          {gallery.length > 1 && (
+            <div className="pd-thumbs">
+              {gallery.map((g, i) => (
+                <button key={i} className={`pd-thumb ${i === 0 ? 'on' : ''}`} onClick={() => setLightbox(true)} aria-label={`View image ${i + 1}`}>
+                  <img src={g} alt="" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <div className="pd-info">
-          <div className="eyebrow">{p.sku} · {p.collection}</div>
+
+        <div className="pd-info min-w-0">
+          <div className="eyebrow">{p.sku} · <span style={{ textTransform: 'capitalize' }}>{p.collection}</span> Collection</div>
           <h1 className="display">{p.name}</h1>
-          <div className="stars" style={{ marginTop: 10 }}>
+          <div className="stars" style={{ marginTop: 10 }} aria-label={`Rated ${p.rating} out of 5 from ${p.reviews} reviews`}>
             {'★'.repeat(Math.round(p.rating || 0))}
             <small> {p.rating} · {p.reviews} reviews</small>
           </div>
@@ -52,6 +126,12 @@ export default function ProductDetail({ p, related }) {
             <b>{fmtPKR(p.price)}</b>
             {p.old_price && <s>{fmtPKR(p.old_price)}</s>}
             {discount > 0 && <span className="save">Save {discount}%</span>}
+          </div>
+          <div className="install-line">
+            <svg viewBox="0 0 24 24" width="18" height="18" style={{ stroke: 'var(--gold-deep)', fill: 'none', strokeWidth: 1.8, flexShrink: 0 }}>
+              <rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18" />
+            </svg>
+            <span>or <b>3 × {fmtPKR(inst)}</b> easy monthly installments — no credit card needed</span>
           </div>
           <p className="pd-desc">{p.description}</p>
 
@@ -66,7 +146,8 @@ export default function ProductDetail({ p, related }) {
                     key={c}
                     className={`swatch ${color === c ? 'on' : ''}`}
                     title={c}
-                    aria-label={c}
+                    aria-label={`Select colour ${c}`}
+                    aria-pressed={color === c}
                     style={{ background: COLOR_HEX[c] || '#ccc' }}
                     onClick={() => setColor(c)}
                   />
@@ -75,41 +156,102 @@ export default function ProductDetail({ p, related }) {
             </>
           )}
 
-          <div className="qty-row">
+          <div className="qty-row" ref={ctaRef}>
             <div className="qty">
-              <button onClick={() => setQtyLocal(Math.max(1, qty - 1))} aria-label="Decrease">−</button>
+              <button onClick={() => setQtyLocal(Math.max(1, qty - 1))} aria-label="Decrease quantity">−</button>
               <b>{qty}</b>
-              <button onClick={() => setQtyLocal(Math.min(p.stock, qty + 1))} aria-label="Increase">+</button>
+              <button onClick={() => setQtyLocal(Math.min(p.stock, qty + 1))} aria-label="Increase quantity">+</button>
             </div>
-            <button
-              className="btn btn-gold"
-              style={{ flex: 1 }}
-              onClick={handleAdd}
-              disabled={p.stock === 0}
-            >
+            <button className="btn btn-gold" style={{ flex: 1, minWidth: 0 }} onClick={handleAdd} disabled={p.stock === 0}>
               {p.stock === 0 ? 'Out of Stock' : added ? 'Added ✓' : 'Add to Bag'}
             </button>
           </div>
-          <button className="btn btn-outline" style={{ width: '100%' }} onClick={() => { add(p.id, qty); setOpen(true); }}>
+          <button className="btn btn-outline" style={{ width: '100%' }} onClick={() => { add(p.id, qty); setOpen(true); }} disabled={p.stock === 0}>
             Buy Now
           </button>
-
-          <div style={{ display: 'flex', gap: 24, marginTop: 24, fontSize: 13.5, color: 'var(--muted)' }}>
-            <span>✓ Cash on Delivery</span>
-            <span>✓ 7-day Exchange</span>
-            <span>{p.stock > 0 ? `✓ In Stock (${p.stock})` : '✗ Out of Stock'}</span>
+          <div className="pd-wish-row">
+            <button className={`wish-btn ${wished ? 'on' : ''}`} onClick={() => toggleWish(p.id)} aria-pressed={wished}>
+              <svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8 3.6 5 6.8 5c2 0 3.7 1.1 5.2 3 1.5-1.9 3.2-3 5.2-3 3.2 0 5.3 3 4.1 6.3-1.8 4.6-9.3 9.2-9.3 9.2z" /></svg>
+              {wished ? 'Saved to Wishlist' : 'Add to Wishlist'}
+            </button>
           </div>
 
-          <div className="spec">
-            <div><span>Material</span><span>{p.material || '—'}</span></div>
-            <div><span>Collection</span><span style={{ textTransform: 'capitalize' }}>{p.collection}</span></div>
-            <div><span>SKU</span><span>{p.sku}</span></div>
+          <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 24, fontSize: 13.5, color: 'var(--muted)' }}>
+            <span>✓ Cash on Delivery</span>
+            <span>✓ 7-day Exchange</span>
+            <span>{p.stock > 0 ? `✓ In Stock (${p.stock} left)` : '✗ Out of Stock'}</span>
+          </div>
+
+          <Accordion items={[
+            {
+              title: 'Details & Materials',
+              body: (
+                <>
+                  <ul>
+                    <li><b>Material:</b> {p.material || 'Premium crafted'}</li>
+                    <li><b>Approx. dimensions (L × H × W):</b> {measurements(p.name)}</li>
+                    <li><b>Strap:</b> {strapInfo(p.name)}</li>
+                    <li><b>Closure:</b> Secure zip + magnetic flap</li>
+                    <li><b>Interior:</b> Cotton lining, zip pocket & slip pockets</li>
+                    <li><b>SKU:</b> {p.sku}</li>
+                  </ul>
+                  <p style={{ marginTop: 8 }}>Wipe clean with a soft dry cloth. Store in the dust bag provided — away from direct sunlight and moisture.</p>
+                </>
+              ),
+            },
+            {
+              title: 'Shipping & Exchange',
+              body: (
+                <ul>
+                  <li>Dispatched within 24 hours from Karachi via TCS / Leopards Courier.</li>
+                  <li>Delivery in 2–4 working days (5–7 for remote areas). Flat Rs 250 — <b>free over Rs 5,000</b>.</li>
+                  <li>7-day easy exchange on unused pieces with tags attached — WhatsApp us your order ID.</li>
+                  <li>Damaged or wrong item? We cover courier both ways + free replacement or refund.</li>
+                </ul>
+              ),
+            },
+          ]} />
+
+          <div className="share-row">
+            <span>Share:</span>
+            <a href={`https://wa.me/?text=${encodeURIComponent(`Look at this ${p.name} from AMMIGE: ${shareUrl}`)}`} target="_blank" rel="noopener noreferrer" aria-label="Share on WhatsApp">
+              <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2z" /></svg>
+            </a>
+            <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" aria-label="Share on Facebook">
+              <svg viewBox="0 0 24 24"><path d="M13.5 22v-8h2.7l.4-3.2h-3.1V8.7c0-.9.3-1.6 1.7-1.6h1.5V4.2c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.7H7.8V14h2.7v8h3z" /></svg>
+            </a>
+            <button onClick={copyLink} aria-label="Copy product link">
+              <svg viewBox="0 0 24 24" style={{ fill: 'none', stroke: 'var(--espresso)', strokeWidth: 1.8 }}>
+                <path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5" />
+              </svg>
+            </button>
+            {copied && <span style={{ color: '#1E7A46' }}>Link copied ✓</span>}
           </div>
         </div>
       </div>
 
+      <div className={`sticky-atc ${showSticky ? 'show' : ''}`} aria-hidden={!showSticky}>
+        <img src={p.image} alt="" />
+        <div className="sa-info">
+          <b>{p.name}</b>
+          <span>{fmtPKR(p.price)}</span>
+        </div>
+        <button className="btn btn-gold" onClick={handleAdd} disabled={p.stock === 0}>
+          {added ? 'Added ✓' : 'Add to Bag'}
+        </button>
+      </div>
+
+      {lightbox && (
+        <div className="lightbox" onClick={() => setLightbox(false)} role="dialog" aria-modal="true" aria-label="Product image enlarged">
+          <button className="icon-btn" aria-label="Close" style={{ background: 'rgba(255,255,255,.12)' }}>
+            <svg viewBox="0 0 24 24" style={{ stroke: '#fff' }}><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+          <img src={p.image} alt={alt} onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+
       {related?.length > 0 && (
-        <section className="block" style={{ paddingTop: 0 }}>
+        <section className="block" style={{ paddingTop: 0 }} aria-label="Related products">
           <div className="sec-head">
             <div className="eyebrow">You may also love</div>
             <h2 className="display">Complete the look</h2>
