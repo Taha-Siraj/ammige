@@ -6,11 +6,12 @@ export async function GET(req) {
   if (!checkRate(req, { windowMs: 60_000, max: 120, scope: 'public-read' })) {
     return NextResponse.json({ error: 'Too many requests. Slow down.' }, { status: 429 });
   }
-  const [brand, whatsapp, announcement, tagline] = await Promise.all([
+  const [brand, whatsapp, announcement, tagline, video_url] = await Promise.all([
     getSetting('brand'),
     getSetting('whatsapp'),
     getSetting('announcement'),
     getSetting('tagline'),
+    getSetting('video_url'),
   ]);
-  return NextResponse.json({ brand, whatsapp, announcement, tagline });
+  return NextResponse.json({ brand, whatsapp, announcement, tagline, video_url });
 }
