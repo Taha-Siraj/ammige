@@ -37,6 +37,59 @@ function IconBag() {
     <svg viewBox="0 0 24 24"><path d="M6 8h15l-1.5 9h-12z" /><path d="M6 8l-1-4H2" /><circle cx="9" cy="20" r="1.4" /><circle cx="17" cy="20" r="1.4" /></svg>
   );
 }
+function IconUser() {
+  return (
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6" /></svg>
+  );
+}
+
+function AccountButton() {
+  const [customer, setCustomer] = useState(null);
+  const [checked, setChecked] = useState(false);
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d && d.ok) setCustomer(d.customer); })
+      .catch(() => {})
+      .finally(() => setChecked(true));
+  }, []);
+  if (!checked) {
+    return (
+      <Link href="/login" className="icon-btn" aria-label="Account">
+        <IconUser />
+      </Link>
+    );
+  }
+  if (customer) {
+    const initial = (customer.name || 'A').trim().charAt(0).toUpperCase();
+    return (
+      <Link href="/account" className="hd-acct solid" aria-label={`My account, ${customer.name}`}>
+        {initial}
+      </Link>
+    );
+  }
+  return (
+    <Link href="/login" className="hd-login" aria-label="Log in">
+      Login
+    </Link>
+  );
+}
+
+function AccountMenuLink({ onClick }) {
+  const [customer, setCustomer] = useState(null);
+  const [checked, setChecked] = useState(false);
+  useEffect(() => {
+    fetch('/api/auth/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d && d.ok) setCustomer(d.customer); })
+      .catch(() => {})
+      .finally(() => setChecked(true));
+  }, []);
+  if (!checked) return null;
+  return customer
+    ? <Link href="/account" onClick={onClick}>My Account ({customer.name.split(' ')[0]})</Link>
+    : <Link href="/login" onClick={onClick}>Login / Sign Up</Link>;
+}
 
 function SearchOverlay({ open, onClose }) {
   const [q, setQ] = useState('');
@@ -179,6 +232,7 @@ export default function Header({ announcement }) {
               <IconBag />
               {count > 0 && <span className="count-badge">{count}</span>}
             </button>
+            <AccountButton />
           </div>
         </div>
         <nav className="hd-nav" aria-label="Categories">
@@ -209,6 +263,7 @@ export default function Header({ announcement }) {
           <div className="drawer-sub">Help</div>
           <Link href="/track" onClick={() => setMenu(false)}>Track Order</Link>
           <Link href="/wishlist" onClick={() => setMenu(false)}>Wishlist{wishCount > 0 ? ` (${wishCount})` : ''}</Link>
+          <AccountMenuLink onClick={() => setMenu(false)} />
           <Link href="/faq" onClick={() => setMenu(false)}>FAQs</Link>
           <Link href="/contact" onClick={() => setMenu(false)}>Contact</Link>
         </nav>
@@ -310,7 +365,7 @@ export function CartDrawer() {
                 <img src={p.image} alt={p.name} loading="lazy" />
                 <div className="min-w-0">
                   <b className="clamp-2">{p.name}</b>
-                  <div className="ci-meta">{fmtPKR(p.price)} each{i.color ? ` · ${i.color}` : ''}</div>
+                  <div className="ci-meta">{fmtPKR(p.price)} each{i.color ? ` · ${i.color}` : ''}{i.size ? ` · ${i.size}` : ''}</div>
                   <div className="ci-qty">
                     <button onClick={() => setQty(i.key, i.qty - 1)} aria-label="Decrease quantity">−</button>
                     <b>{i.qty}</b>
