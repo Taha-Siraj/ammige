@@ -5,24 +5,25 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 const CartCtx = createContext(null);
 
 export function CartProvider({ children }) {
-  const [items, setItems] = useState([]); // [{key, id, qty, color}]
+  const [items, setItems] = useState([]); // [{key, id, qty, color, size}]
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [wishlist, setWishlist] = useState([]); // [id]
 
-  const cartKey = (id, color) => `${id}__${color || ''}`;
+  const cartKey = (id, color, size) => `${id}__${color || ''}__${size || ''}`;
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem('ammige_cart');
       if (raw) {
-        // Normalize: older carts stored {id, qty} without key/color.
+        // Normalize: older carts stored {id, qty} without key/color/size.
         const parsed = JSON.parse(raw);
         setItems(Array.isArray(parsed) ? parsed.map((i) => ({
-          key: i.key || cartKey(i.id, i.color),
+          key: i.key || cartKey(i.id, i.color, i.size),
           id: i.id,
           qty: i.qty,
           color: i.color || null,
+          size: i.size || null,
         })) : []);
       }
       const w = localStorage.getItem('ammige_wishlist');
@@ -43,12 +44,12 @@ export function CartProvider({ children }) {
     }
   }, [wishlist, loaded]);
 
-  const add = (id, qty = 1, color = null) =>
+  const add = (id, qty = 1, color = null, size = null) =>
     setItems((prev) => {
-      const key = cartKey(id, color);
+      const key = cartKey(id, color, size);
       const found = prev.find((i) => i.key === key);
       if (found) return prev.map((i) => (i.key === key ? { ...i, qty: i.qty + qty } : i));
-      return [...prev, { key, id, qty, color }];
+      return [...prev, { key, id, qty, color, size }];
     });
   const setQty = (key, qty) =>
     setItems((prev) =>
