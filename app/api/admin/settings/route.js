@@ -10,6 +10,7 @@ import { checkRate } from '@/lib/rate-limit';
 const ALLOWED = [
   'admin_password', 'whatsapp', 'announcement', 'tagline', 'brand',
   'shipping_flat', 'free_shipping_threshold', 'payment_cod', 'payment_bank',
+  'video_url',
 ];
 
 function adminWriteLimit(req) {
@@ -69,6 +70,13 @@ export async function PATCH(req) {
       cleaned[k] = String(v);
     } else if (k === 'payment_cod' || k === 'payment_bank') {
       cleaned[k] = b[k] ? '1' : '0';
+    } else if (k === 'video_url') {
+      // Empty = hide the homepage video section. Non-empty must be a URL.
+      const v = String(b[k] || '').trim();
+      if (v && !/^https?:\/\/.{4,500}$/.test(v)) {
+        return NextResponse.json({ error: 'video_url must be a valid http(s) URL or empty.' }, { status: 400 });
+      }
+      cleaned[k] = v;
     } else {
       const v = sanitizeText(b[k], 500);
       if (!v) {
