@@ -14,23 +14,27 @@ const TILT_MAX = 7;
 export default function ProductCard({ p }) {
   const { toggleWish, isWished, add } = useCart();
   const [added, setAdded] = useState(false);
-  const [canHover, setCanHover] = useState(false);
+  const [hoverCapable, setHoverCapable] = useState(null); // null = not yet detected
+  const [touchIdx, setTouchIdx] = useState(0); // touch devices: 0 = main, 1 = 2nd photo
   const cardRef = useRef(null);
   const wished = isWished(p.id);
   const discount = p.old_price ? Math.round((1 - p.price / p.old_price) * 100) : 0;
   const hoverImage = p.image2 && p.image2 !== p.image ? p.image2 : null;
+  // Touch devices: swap the main src (no hover on touch). Desktop: stacked crossfade.
+  const shownImage = hoverCapable === false && touchIdx === 1 && hoverImage ? hoverImage : p.image;
 
   // Desktop + fine pointer only: hover swap + tilt need a real cursor.
   useEffect(() => {
-    setCanHover(window.matchMedia('(hover: hover) and (pointer: fine)').matches);
+    setHoverCapable(window.matchMedia('(hover: hover) and (pointer: fine)').matches);
   }, []);
+  const canHover = hoverCapable === true;
 
-  // Preload the hover image so the crossfade is instant.
+  // Preload the 2nd photo so the swap (hover or tap) is instant.
   useEffect(() => {
-    if (!canHover || !hoverImage) return;
+    if (!hoverImage) return;
     const im = new Image();
     im.src = hoverImage;
-  }, [canHover, hoverImage]);
+  }, [hoverImage]);
 
   // 3D tilt following the cursor (rAF-throttled, lerped return on leave).
   useEffect(() => {
@@ -108,7 +112,7 @@ export default function ProductCard({ p }) {
   return (
     <div className="prod-card" ref={cardRef}>
       <Link href={`/product/${p.id}`} className="prod-media" aria-label={p.name}>
-        <img src={p.image} alt={`${p.name} — AMMIGE ${p.collection} handbag`} loading="lazy" />
+        <img key={shownImage} src={shownImage} alt={`${p.name} — AMMIGE ${p.collection} handbag`} loading="lazy" className="prod-img-main" />
         {canHover && hoverImage && (
           <img
             className="prod-img-hover"
@@ -117,6 +121,24 @@ export default function ProductCard({ p }) {
             aria-hidden="true"
             loading="lazy"
           />
+        )}
+        {hoverCapable === false && hoverImage && (
+          <span className="prod-dots" role="group" aria-label="Product photos">
+            {[0, 1].map((i) => (
+              <button
+                key={i}
+                type="button"
+                className={touchIdx === i ? 'on' : ''}
+                aria-label={`Photo ${i + 1}`}
+                aria-pressed={touchIdx === i}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setTouchIdx(i);
+                }}
+              />
+            ))}
+          </span>
         )}
         {p.badge && (
           <span className={`prod-badge ${p.badge === 'Sale' ? 'sale' : ''}`}>{p.badge}</span>

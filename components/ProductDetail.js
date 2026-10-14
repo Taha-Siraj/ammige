@@ -2,10 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useCart, fmtPKR } from './CartProvider';
 import { COLOR_HEX } from './colorHex';
 import ProductCard from './ProductCard';
+
+// 3D viewer — client-only, code-split, never SSR'd (three.js lazy chunk).
+const Product3DViewer = dynamic(() => import('./Product3DViewer'), { ssr: false });
 
 function measurements(name) {
   const n = (name || '').toLowerCase();
@@ -48,8 +52,12 @@ export default function ProductDetail({ p, related }) {
   const { add, toggleWish, isWished } = useCart();
   const [qty, setQtyLocal] = useState(1);
   const [color, setColor] = useState(p.colors?.[0] || null);
+  const [size, setSize] = useState(p.sizes?.[0] || null); // auto-select (matches color behavior)
+  const [sizeHint, setSizeHint] = useState(false);
+  const [viewImg, setViewImg] = useState(null); // explicit thumbnail override
   const [added, setAdded] = useState(false);
   const [lightbox, setLightbox] = useState(false);
+  const [viewer3d, setViewer3d] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showSticky, setShowSticky] = useState(false);
   const ctaRef = useRef(null);
@@ -57,7 +65,20 @@ export default function ProductDetail({ p, related }) {
 
   const discount = p.old_price ? Math.round((1 - p.price / p.old_price) * 100) : 0;
   const inst = Math.round(p.price / 3);
-  const gallery = [p.image, p.image2 && p.image2 !== p.image ? p.image2 : null].filter(Boolean);
+  const variantImg = (color && p.variant_images && p.variant_images[color]) || null;
+  const mainImg = viewImg || variantImg || p.image;
+  const img2 = p.image2 && p.image2 !== p.image ? p.image2 : null;
+  const thumbs = [];
+  for (const t of [variantImg || p.image, img2]) {
+    if (t && !thumbs.includes(t)) thumbs.push(t);
+  }
+
+  const pickColor = (c) => {
+    setColor(c);
+    setViewImg(null); // follow the color's photo
+  };
+
+  const needSize = (p.sizes?.length || 0) > 0;
 
   useEffect(() => {
     const el = ctaRef.current;
@@ -76,13 +97,21 @@ export default function ProductDetail({ p, related }) {
   }, [lightbox]);
 
   const handleAdd = () => {
-    add(p.id, qty, color);
+    if (needSize && !size) {
+      setSizeHint(true);
+      return;
+    }
+    add(p.id, qty, color, size);
     setAdded(true);
     setTimeout(() => setAdded(false), 1600);
   };
 
   const handleBuyNow = () => {
-    add(p.id, qty, color);
+    if (needSize && !size) {
+      setSizeHint(true);
+      return;
+    }
+    add(p.id, qty, color, size);
     router.push('/checkout');
   };
 
@@ -109,12 +138,21 @@ export default function ProductDetail({ p, related }) {
         <div className="pd-gallery">
           <div className="pd-main" onClick={() => setLightbox(true)} role="button" tabIndex={0}
                aria-label="View larger image" onKeyDown={(e) => e.key === 'Enter' && setLightbox(true)}>
-            <img src={p.image} alt={alt} fetchPriority="high" />
+            <img key={mainImg} src={mainImg} alt={alt} fetchPriority="high" className="pd-swap" />
+            <button
+              className="pd-3dbtn"
+              onClick={(e) => { e.stopPropagation(); setViewer3d(true); }}
+              onKeyDown={(e) => e.stopPropagation()}
+              aria-label="Open 3D view"
+            >
+              <svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7l9-5z" /><path d="M3 7l9 5 9-5" /><path d="M12 12v10" /></svg>
+              3D View
+            </button>
           </div>
-          {gallery.length > 1 && (
+          {thumbs.length > 1 && (
             <div className="pd-thumbs">
-              {gallery.map((g, i) => (
-                <button key={i} className={`pd-thumb ${i === 0 ? 'on' : ''}`} onClick={() => setLightbox(true)} aria-label={`View image ${i + 1}`}>
+              {thumbs.map((g, i) => (
+                <button key={g} className={`pd-thumb ${g === mainImg ? 'on' : ''}`} onClick={() => setViewImg(g)} aria-label={`View image ${i + 1}`}>
                   <img src={g} alt="" />
                 </button>
               ))}
@@ -156,10 +194,39 @@ export default function ProductDetail({ p, related }) {
                     aria-label={`Select colour ${c}`}
                     aria-pressed={color === c}
                     style={{ background: COLOR_HEX[c] || '#ccc' }}
-                    onClick={() => setColor(c)}
+                    onClick={() => pickColor(c)}
                   />
                 ))}
               </div>
+            </>
+          )}
+
+          {needSize && (
+            <>
+              <div style={{ fontSize: 12, letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--muted)', marginTop: 18 }}>
+                Size {size ? <b style={{ color: 'var(--espresso)' }}>— {size}</b> : null}
+              </div>
+              <div className="size-pills" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+                {p.sizes.map((s) => (
+                  <button
+                    key={s}
+                    className={`size-pill ${size === s ? 'on' : ''}`}
+                    aria-pressed={size === s}
+                    onClick={() => { setSize(s); setSizeHint(false); }}
+                    style={{
+                      padding: '10px 20px', borderRadius: 999,
+                      border: size === s ? '1.5px solid var(--gold-deep)' : '1px solid var(--line)',
+                      background: size === s ? 'var(--champagne)' : '#fff',
+                      fontWeight: size === s ? 600 : 400, fontSize: 14,
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              {sizeHint && !size && (
+                <p style={{ color: '#B3402E', fontSize: 13, marginTop: 8 }}>Please select a size first.</p>
+              )}
             </>
           )}
 
@@ -253,8 +320,12 @@ export default function ProductDetail({ p, related }) {
           <button className="icon-btn" aria-label="Close" style={{ background: 'rgba(255,255,255,.12)' }}>
             <svg viewBox="0 0 24 24" style={{ stroke: '#fff' }}><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
-          <img src={p.image} alt={alt} onClick={(e) => e.stopPropagation()} />
+          <img src={mainImg} alt={alt} onClick={(e) => e.stopPropagation()} />
         </div>
+      )}
+
+      {viewer3d && (
+        <Product3DViewer image={mainImg} alt={alt} onClose={() => setViewer3d(false)} />
       )}
 
       {related?.length > 0 && (
