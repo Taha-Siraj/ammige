@@ -2,7 +2,7 @@ import Link from 'next/link';
 import ProductCard from '@/components/ProductCard';
 import Reveal from '@/components/Reveal';
 import CinematicHero from '@/components/CinematicHero';
-import { client, ready, parseProduct, COLLECTIONS } from '@/lib/db';
+import { client, ready, parseProduct, COLLECTIONS, getSetting } from '@/lib/db';
 import BestsellersCarousel from '@/components/BestsellersCarousel';
 import NewsletterForm from '@/components/NewsletterForm';
 
@@ -21,8 +21,30 @@ async function getBestsellers() {
   return items;
 }
 
-const MARQUEE = [
-  'Free nationwide delivery over Rs 5,000',
+/** Extract a YouTube video ID from watch / youtu.be / shorts URLs. */
+function youtubeId(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    if (host.includes('youtube.com')) {
+      if (u.pathname === '/watch') return u.searchParams.get('v');
+      const m = u.pathname.match(/^\/shorts\/([\w-]{6,})/);
+      if (m) return m[1];
+    } else if (host === 'youtu.be') {
+      const m = u.pathname.match(/^\/([\w-]{6,})/);
+      if (m) return m[1];
+    }
+  } catch {
+    // not a parseable URL
+  }
+  return null;
+}
+
+function isDirectVideo(url) {
+  return /\.(mp4|webm)(\?|#|$)/i.test(url);
+}
+
+const MARQUEE = [  'Free nationwide delivery over Rs 5,000',
   'Cash on Delivery',
   'Handcrafted in Pakistan',
   'Premium gift packaging',
@@ -78,6 +100,9 @@ const TESTIMONIALS = [
 
 export default async function Home() {
   const bestsellers = await getBestsellers();
+  const videoUrl = (await getSetting('video_url')) || '';
+  const ytVideoId = youtubeId(videoUrl);
+  const showVideo = Boolean(ytVideoId || (!ytVideoId && isDirectVideo(videoUrl)));
   const marqueeHalf = MARQUEE.map((t) => (
     <span key={t}><i>◆</i>{t}</span>
   ));
@@ -200,8 +225,35 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* TRUST BADGES */}
-      <section className="block" style={{ paddingBottom: 0 }}>
+      {showVideo ? (
+        <section className="block" id="film" style={{ paddingTop: 0 }}>
+          <div className="wrap">
+            <Reveal>
+              <div className="sec-head" style={{ marginBottom: 40 }}>
+                <div className="eyebrow">In motion</div>
+                <h2 className="display">The Craft, In Motion</h2>
+                <p>Watch how every AMMIGE piece comes to life — from cutting table to your doorstep.</p>
+              </div>
+            </Reveal>
+            <Reveal>
+              <div className="video-frame">
+                {ytVideoId ? (
+                  <iframe
+                    src={`https://www.youtube.com/embed/${ytVideoId}`}
+                    title="AMMIGE — The Craft, In Motion"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video src={videoUrl} controls playsInline preload="metadata" />
+                )}
+              </div>
+            </Reveal>
+          </div>
+        </section>
+      ) : null}
+
+      {/* TRUST BADGES */}      <section className="block" style={{ paddingBottom: 0 }}>
         <div className="wrap">
           <Reveal>
             <div className="sec-head" style={{ marginBottom: 44 }}>

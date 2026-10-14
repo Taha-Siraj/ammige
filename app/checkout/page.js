@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart, fmtPKR } from '@/components/CartProvider';
@@ -9,7 +9,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { items, clear, loaded } = useCart();
   const [products, setProducts] = useState({});
-  const [form, setForm] = useState({ name: '', phone: '', address: '', city: '', notes: '' });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', city: '', notes: '' });
   const [payment, setPayment] = useState('cod');
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState('');
@@ -17,6 +17,7 @@ export default function CheckoutPage() {
   const [couponState, setCouponState] = useState(null); // {ok, coupon?, error?}
   const [couponBusy, setCouponBusy] = useState(false);
   const [placed, setPlaced] = useState(null); // server-returned {order_id, subtotal, discount, shipping, total}
+  const [account, setAccount] = useState(null); // signed-in customer or null
 
   useEffect(() => {
     if (!loaded) return;
@@ -29,6 +30,30 @@ export default function CheckoutPage() {
       })
       .catch(() => {});
   }, [loaded, items]);
+
+  // Prefill from the customer account (if signed in) — never overwrite
+  // fields the user has already typed into.
+  const prefilledRef = useRef(false);
+  useEffect(() => {
+    if (prefilledRef.current) return;
+    prefilledRef.current = true;
+    fetch('/api/auth/me')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const c = d && d.ok ? d.customer : null;
+        if (!c) return;
+        setAccount(c);
+        setForm((f) => ({
+          name: f.name || c.name || '',
+          phone: f.phone || c.phone || '',
+          email: f.email || c.email || '',
+          address: f.address,
+          city: f.city,
+          notes: f.notes,
+        }));
+      })
+      .catch(() => {});
+  }, []);
 
   const total = items.reduce((s, i) => s + (products[i.id]?.price || 0) * i.qty, 0);
   // Discount comes from the server (coupon validate). Shipping/total are
@@ -80,10 +105,11 @@ export default function CheckoutPage() {
           customer: {
             name: form.name.trim(),
             phone: form.phone.trim(),
+            email: form.email.trim() || undefined,
             address: form.address.trim(),
             city: form.city.trim(),
           },
-          items: items.map((i) => ({ id: i.id, qty: i.qty, ...(i.color ? { color: i.color } : {}) })),
+          items: items.map((i) => ({ id: i.id, qty: i.qty, ...(i.color ? { color: i.color } : {}), ...(i.size ? { size: i.size } : {}) })),
           payment,
           notes: form.notes.trim() || undefined,
           ...(couponState?.ok && couponState.coupon ? { couponCode: couponState.coupon.code } : {}),
@@ -165,6 +191,17 @@ export default function CheckoutPage() {
       <form className="co-grid" onSubmit={placeOrder}>
         <div className="co-card">
           <h3>Delivery Details</h3>
+          {account ? (
+            <p style={{ fontSize: 13.5, color: 'var(--muted)', margin: '-8px 0 18px' }}>
+              Signed in as <b style={{ color: 'var(--espresso)' }}>{account.name}</b>
+              {' · '}<Link href="/account" style={{ color: 'var(--gold-deep)', textDecoration: 'underline' }}>My account</Link>
+            </p>
+          ) : (
+            <p style={{ fontSize: 13.5, color: 'var(--muted)', margin: '-8px 0 18px' }}>
+              <Link href="/login?next=/checkout" style={{ color: 'var(--gold-deep)', textDecoration: 'underline' }}>Log in</Link>
+              {' '}for faster checkout and order history — or continue as guest.
+            </p>
+          )}
           <div className="f-row">
             <div className="f-group">
               <label>Full Name</label>
@@ -173,6 +210,10 @@ export default function CheckoutPage() {
             <div className="f-group">
               <label>Phone</label>
               <input required value={form.phone} onChange={set('phone')} placeholder="03xx xxxxxxx" inputMode="tel" autoComplete="tel" />
+            </div>
+            <div className="f-group">
+              <label>Email (optional)</label>
+              <input value={form.email} onChange={set('email')} placeholder="you@example.com" inputMode="email" autoComplete="email" />
             </div>
           </div>
           <div className="f-group">
@@ -246,7 +287,7 @@ export default function CheckoutPage() {
                 <img src={p.image} alt={p.name} />
                 <div style={{ flex: 1 }}>
                   <b>{p.name}</b>
-                  <span>Qty {i.qty}{i.color ? ` · ${i.color}` : ''}</span>
+                  <span>Qty {i.qty}{i.color ? ` · ${i.color}` : ''}{i.size ? ` · ${i.size}` : ''}</span>
                 </div>
                 <b>{fmtPKR(p.price * i.qty)}</b>
               </div>
