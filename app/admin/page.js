@@ -1117,6 +1117,30 @@ function Products() {
   );
 }
 
+function ColorPhotos({ colors, variantImages, onChange }) {
+  const list = String(colors || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (list.length === 0) return null;
+  return (
+    <div className="f-group">
+      <label>Color photos (swatch click shows this photo)</label>
+      {list.map((c) => (
+        <div key={c} className="f-row" style={{ alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ minWidth: 110, fontSize: 13.5, fontWeight: 500 }}>{c}</span>
+          <input
+            value={variantImages[c] || ''}
+            onChange={(e) => onChange(c, e.target.value)}
+            placeholder="/images/products/... (optional)"
+            style={{ flex: 1 }}
+          />
+        </div>
+      ))}
+      <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+        Leave empty to use the main image for that color.
+      </p>
+    </div>
+  );
+}
+
 function ProductEditor({ product, onClose, onSaved }) {
   const [f, setF] = useState({
     name: product?.name || '',
@@ -1127,6 +1151,9 @@ function ProductEditor({ product, onClose, onSaved }) {
     description: product?.description || '',
     image: product?.image || '',
     image2: product?.image2 || '',
+    colors: (product?.colors || []).join(', '),
+    sizes: (product?.sizes || []).join(', '),
+    variant_images: product?.variant_images || {},
     stock: product?.stock ?? 50,
     badge: product?.badge || '',
     active: product ? (product.active ? 1 : 0) : 1,
@@ -1148,6 +1175,8 @@ function ProductEditor({ product, onClose, onSaved }) {
         old_price: f.old_price ? Number(f.old_price) : null,
         stock: Number(f.stock),
         active: Number(f.active),
+        colors: String(f.colors || '').split(',').map((s) => s.trim()).filter(Boolean),
+        sizes: String(f.sizes || '').split(',').map((s) => s.trim()).filter(Boolean),
       };
       const url = product ? `/api/admin/products/${product.id}` : '/api/admin/products';
       const r = await fetch(url, {
@@ -1197,8 +1226,17 @@ function ProductEditor({ product, onClose, onSaved }) {
             <div className="f-group"><label>Badge</label><input value={f.badge} onChange={set('badge')} placeholder="New / Bestseller / Sale" /></div>
           </div>
           <div className="f-group"><label>Material</label><input value={f.material} onChange={set('material')} /></div>
+          <div className="f-row">
+            <div className="f-group"><label>Colors (comma-separated)</label><input value={f.colors} onChange={set('colors')} placeholder="Terracotta, Black, Beige" /></div>
+            <div className="f-group"><label>Sizes (comma-separated)</label><input value={f.sizes} onChange={set('sizes')} placeholder="Mini, Medium, Large" /></div>
+          </div>
           <div className="f-group"><label>Image URL</label><input value={f.image} onChange={set('image')} placeholder="/images/products/..." /></div>
           <div className="f-group"><label>Hover Image URL (2nd photo — shows on hover)</label><input value={f.image2} onChange={set('image2')} placeholder="/images/products/... (optional)" /></div>
+          <ColorPhotos colors={f.colors} variantImages={f.variant_images || {}} onChange={(color, url) => {
+            const vi = { ...(f.variant_images || {}) };
+            if (url.trim()) vi[color] = url.trim(); else delete vi[color];
+            setF({ ...f, variant_images: vi });
+          }} />
           <div className="f-group"><label>Description</label><textarea rows={4} value={f.description} onChange={set('description')} /></div>
           <div className="f-group">
             <label>Status</label>
@@ -1228,6 +1266,7 @@ function Settings() {
   const [f, setF] = useState({
     admin_password: '', whatsapp: '', announcement: '', tagline: '', brand: '',
     shipping_flat: '', free_shipping_threshold: '', payment_cod: true, payment_bank: true,
+    video_url: '',
   });
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
@@ -1245,6 +1284,7 @@ function Settings() {
         free_shipping_threshold: d.free_shipping_threshold ?? '5000',
         payment_cod: d.payment_cod !== '0',
         payment_bank: d.payment_bank !== '0',
+        video_url: d.video_url || '',
       }))
       .catch(() => {});
   }, []);
@@ -1262,6 +1302,7 @@ function Settings() {
       free_shipping_threshold: f.free_shipping_threshold,
       payment_cod: f.payment_cod,
       payment_bank: f.payment_bank,
+      video_url: f.video_url,
       ...(f.admin_password ? { admin_password: f.admin_password } : {}),
     };
     const r = await fetch('/api/admin/settings', {
@@ -1288,6 +1329,7 @@ function Settings() {
         <div className="f-group"><label>Tagline</label><input value={f.tagline} onChange={set('tagline')} /></div>
         <div className="f-group"><label>Announcement Bar</label><input value={f.announcement} onChange={set('announcement')} /></div>
         <div className="f-group"><label>WhatsApp Number (with country code)</label><input value={f.whatsapp} onChange={set('whatsapp')} placeholder="923001234567" /></div>
+        <div className="f-group"><label>Homepage Video URL</label><input value={f.video_url} onChange={set('video_url')} placeholder="YouTube link or .mp4 URL (empty = no video section)" /><div style={{ fontSize: 12, color: '#777', marginTop: 4 }}>YouTube watch/shorts link or a direct .mp4/.webm URL. Leave empty to hide the video section.</div></div>
 
         <h3 className="display" style={{ fontSize: 22, margin: '24px 0 16px' }}>Shipping</h3>
         <div className="f-row">
