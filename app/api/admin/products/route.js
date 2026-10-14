@@ -14,6 +14,23 @@ function adminWriteLimit(req) {
   return checkRate(req, { windowMs: 60_000, max: 60, scope: 'admin-write' });
 }
 
+/**
+ * Validate + sanitize variant_images: { "Color Name": "/images/..." }.
+ * Returns JSON string on success, '{}' for empty, false when invalid.
+ */
+function cleanVariantImages(v) {
+  if (v == null) return '{}';
+  if (typeof v !== 'object' || Array.isArray(v)) return false;
+  const out = {};
+  const keys = Object.keys(v).slice(0, 12);
+  for (const k of keys) {
+    const color = sanitizeText(k, 40);
+    const url = sanitizeText(v[k], 300);
+    if (color && url && isSafeImageUrl(url)) out[color] = url;
+  }
+  return JSON.stringify(out);
+}
+
 export async function GET(req) {
   const denied = requireAdmin(req);
   if (denied) return denied;
@@ -86,6 +103,11 @@ export async function POST(req) {
   if (image2 && !isSafeImageUrl(image2)) {
     return NextResponse.json({ error: 'image2 must be a relative path or http(s) URL.' }, { status: 400 });
   }
+  const variant_images = cleanVariantImages(b.variant_images);
+  if (variant_images === false) {
+    return NextResponse.json({ error: 'variant_images must be an object of color → image URL (max 12).' }, { status: 400 });
+  }
+  const sizes = JSON.stringify(sanitizeStringArray(b.sizes));
 
   await ready();
   const c = client();
@@ -99,8 +121,8 @@ export async function POST(req) {
   try {
     const ins = await c.execute({
       sql: `INSERT INTO products (sku, name, collection, price, old_price, colors, material,
-              description, image, image2, rating, reviews, badge, stock, active, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              description, image, image2, variant_images, sizes, rating, reviews, badge, stock, active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         sku,
         name,
@@ -112,6 +134,8 @@ export async function POST(req) {
         sanitizeText(b.description, 2000) || null,
         image || null,
         image2 || null,
+        variant_images,
+        sizes,
         typeof b.rating === 'number' ? Math.min(5, Math.max(0, b.rating)) : 0,
         isPositiveInt(b.reviews) ? b.reviews : 0,
         sanitizeText(b.badge, 20) || null,

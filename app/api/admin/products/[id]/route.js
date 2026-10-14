@@ -9,7 +9,7 @@ import { checkOrigin } from '@/lib/csrf';
 import { checkRate } from '@/lib/rate-limit';
 
 const ALLOWED = ['sku', 'name', 'collection', 'price', 'old_price', 'colors', 'material',
-  'description', 'image', 'image2', 'rating', 'reviews', 'badge', 'stock', 'active'];
+  'description', 'image', 'image2', 'variant_images', 'sizes', 'rating', 'reviews', 'badge', 'stock', 'active'];
 
 function adminWriteLimit(req) {
   return checkRate(req, { windowMs: 60_000, max: 60, scope: 'admin-write' });
@@ -30,6 +30,18 @@ function clean(k, v, existing) {
       const s = sanitizeText(v, 300);
       return s && isSafeImageUrl(s) ? s : null;
     }
+    case 'variant_images': {
+      if (v == null) return '{}';
+      if (typeof v !== 'object' || Array.isArray(v)) return '{}';
+      const out = {};
+      for (const k of Object.keys(v).slice(0, 12)) {
+        const color = sanitizeText(k, 40);
+        const url = sanitizeText(v[k], 300);
+        if (color && url && isSafeImageUrl(url)) out[color] = url;
+      }
+      return JSON.stringify(out);
+    }
+    case 'sizes': return JSON.stringify(sanitizeStringArray(v));
     case 'rating': return typeof v === 'number' ? Math.min(5, Math.max(0, v)) : existing.rating;
     case 'reviews': return isPositiveInt(v) ? v : 0;
     case 'badge': return sanitizeText(v, 20) || null;
@@ -79,6 +91,13 @@ export async function PATCH(req, { params }) {
   }
   if ('colors' in updates && !Array.isArray(updates.colors)) {
     return NextResponse.json({ error: 'colors must be an array.' }, { status: 400 });
+  }
+  if ('sizes' in updates && !Array.isArray(updates.sizes)) {
+    return NextResponse.json({ error: 'sizes must be an array.' }, { status: 400 });
+  }
+  if ('variant_images' in updates && updates.variant_images != null &&
+      (typeof updates.variant_images !== 'object' || Array.isArray(updates.variant_images))) {
+    return NextResponse.json({ error: 'variant_images must be an object.' }, { status: 400 });
   }
   if ('stock' in updates && (!Number.isInteger(updates.stock) || updates.stock < 0)) {
     return NextResponse.json({ error: 'stock must be a non-negative integer.' }, { status: 400 });
