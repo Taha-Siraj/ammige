@@ -1,9 +1,15 @@
 import './globals.css';
+import { Poppins, Roboto } from 'next/font/google';
+import { headers } from 'next/headers';
 import { CartProvider } from '@/components/CartProvider';
 import Header, { WhatsAppFloat, CartDrawer } from '@/components/Header';
 import Footer from '@/components/Footer';
 import Preloader from '@/components/Preloader';
 import { getSetting } from '@/lib/db';
+
+// next/font: self-hosted, no render-blocking Google Fonts request.
+const poppins = Poppins({ weight: ['500', '600', '700'], subsets: ['latin'], display: 'swap', variable: '--font-d' });
+const roboto = Roboto({ weight: ['400', '500', '700'], subsets: ['latin'], display: 'swap', variable: '--font-b' });
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://ammige.com';
 
@@ -60,28 +66,46 @@ export default async function RootLayout({ children }) {
     name: 'AMMIGE',
     url: SITE_URL,
     logo: `${SITE_URL}/images/hero-model.jpg`,
+    slogan: 'Carry Grace Everywhere',
+    description: "AMMIGE is a Pakistani women's handbags brand. Everyday, Signature and Leather collections. Prices in PKR, Cash on Delivery nationwide, 7-day easy exchange.",
     sameAs: [
-      'https://instagram.com/ammige012',
-      'https://tiktok.com/@ammige012',
-      'https://facebook.com/ammige012',
+      'https://www.instagram.com/ammige012',
+      'https://www.tiktok.com/@ammige012',
+      'https://www.facebook.com/share/1KZiNXEgJi/',
     ],
+    // speakable: lets voice assistants & AI answer engines quote key facts directly (GEO/AEO).
+    speakable: {
+      '@type': 'SpeakableSpecification',
+      xpath: ["/html/head/title", "/html/head/meta[@name='description']/@content"],
+    },
   };
 
+  // The admin panel (/admin) renders WITHOUT any storefront chrome —
+  // no header, footer, cart drawer, preloader or WhatsApp button — so it
+  // stays completely separated from the public site. The middleware sets
+  // the x-pathname header on every pass-through request.
+  const pathname = (await headers()).get('x-pathname') || '';
+  const isAdmin = pathname === '/admin' || pathname.startsWith('/admin/');
+
   return (
-    <html lang="en">
+    <html lang="en" className={`${poppins.variable} ${roboto.variable}`}>
       <body>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
         />
-        <CartProvider>
-          <Preloader />
-          <Header announcement={announcement} />
+        {isAdmin ? (
           <main>{children}</main>
-          <Footer />
-          <CartDrawer />
-          <WhatsAppFloat number={whatsapp} />
-        </CartProvider>
+        ) : (
+          <CartProvider>
+            <Preloader />
+            <Header announcement={announcement} />
+            <main>{children}</main>
+            <Footer />
+            <CartDrawer />
+            <WhatsAppFloat number={whatsapp} />
+          </CartProvider>
+        )}
       </body>
     </html>
   );

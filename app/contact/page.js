@@ -41,9 +41,9 @@ export default async function ContactPage() {
               <h3>Follow along</h3>
               <p>New drops, behind-the-scenes and styling ideas.</p>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <a className="btn btn-outline btn-sm" href="https://instagram.com/ammige012" target="_blank" rel="noopener noreferrer">Instagram</a>
-                <a className="btn btn-outline btn-sm" href="https://tiktok.com/@ammige012" target="_blank" rel="noopener noreferrer">TikTok</a>
-                <a className="btn btn-outline btn-sm" href="https://facebook.com/ammige012" target="_blank" rel="noopener noreferrer">Facebook</a>
+                <a className="btn btn-outline btn-sm" href="https://www.instagram.com/ammige012" target="_blank" rel="noopener noreferrer">Instagram</a>
+                <a className="btn btn-outline btn-sm" href="https://www.tiktok.com/@ammige012" target="_blank" rel="noopener noreferrer">TikTok</a>
+                <a className="btn btn-outline btn-sm" href="https://www.facebook.com/share/1KZiNXEgJi/" target="_blank" rel="noopener noreferrer">Facebook</a>
               </div>
             </div>
           </Reveal>

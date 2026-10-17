@@ -108,6 +108,7 @@ export async function POST(req) {
     return NextResponse.json({ error: 'variant_images must be an object of color → image URL (max 12).' }, { status: 400 });
   }
   const sizes = JSON.stringify(sanitizeStringArray(b.sizes));
+  const spin_frames = JSON.stringify(sanitizeStringArray(b.spin_frames).filter((u) => isSafeImageUrl(u)).slice(0, 36));
 
   await ready();
   const c = client();
@@ -121,8 +122,8 @@ export async function POST(req) {
   try {
     const ins = await c.execute({
       sql: `INSERT INTO products (sku, name, collection, price, old_price, colors, material,
-              description, image, image2, variant_images, sizes, rating, reviews, badge, stock, active, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              description, image, image2, variant_images, sizes, spin_frames, rating, reviews, badge, stock, active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         sku,
         name,
@@ -136,6 +137,7 @@ export async function POST(req) {
         image2 || null,
         variant_images,
         sizes,
+        spin_frames,
         typeof b.rating === 'number' ? Math.min(5, Math.max(0, b.rating)) : 0,
         isPositiveInt(b.reviews) ? b.reviews : 0,
         sanitizeText(b.badge, 20) || null,

@@ -104,6 +104,25 @@ export async function GET(req) {
     sql: 'SELECT * FROM orders ORDER BY id DESC LIMIT 10',
   });
 
+  // Top products by units sold in the selected range (aggregated from order items).
+  const topMap = new Map();
+  const rangeOrders = await c.execute({
+    sql: `SELECT items FROM orders WHERE status != 'cancelled' AND created_at >= ?`,
+    args: [startISO],
+  });
+  for (const row of rangeOrders.rows) {
+    let items = [];
+    try { items = JSON.parse(row.items); } catch { /* keep [] */ }
+    for (const it of items) {
+      const key = it.id != null ? `id:${it.id}` : `name:${it.name}`;
+      const cur2 = topMap.get(key) || { id: it.id ?? null, name: it.name || 'Unknown', qty: 0, revenue: 0 };
+      cur2.qty += Number(it.qty) || 0;
+      cur2.revenue += (Number(it.price) || 0) * (Number(it.qty) || 0);
+      topMap.set(key, cur2);
+    }
+  }
+  const topProducts = [...topMap.values()].sort((a, b) => b.qty - a.qty).slice(0, 5);
+
   const pct = (a, b) => (b > 0 ? Math.round(((a - b) / b) * 1000) / 10 : a > 0 ? 100 : 0);
 
   return NextResponse.json({
@@ -121,6 +140,7 @@ export async function GET(req) {
     series: [...buckets.values()],
     statusBreakdown,
     lowStock: lowR.rows,
+    topProducts,
     recentOrders: recentR.rows.map(parseOrder),
   });
 }

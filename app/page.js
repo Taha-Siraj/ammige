@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import ProductCard from '@/components/ProductCard';
 import Reveal from '@/components/Reveal';
-import CinematicHero from '@/components/CinematicHero';
+import EditorialHero from '@/components/EditorialHero';
+import SmartImage from '@/components/SmartImage';
 import { client, ready, parseProduct, COLLECTIONS, getSetting } from '@/lib/db';
 import BestsellersCarousel from '@/components/BestsellersCarousel';
 import NewsletterForm from '@/components/NewsletterForm';
@@ -19,6 +20,17 @@ async function getBestsellers() {
     items = r2.rows.map(parseProduct);
   }
   return items;
+}
+
+/** Live product counts per collection — shown on the collection cards. */
+async function getCollectionCounts() {
+  await ready();
+  const r = await client().execute(
+    'SELECT collection, COUNT(*) AS n FROM products WHERE active = 1 GROUP BY collection'
+  );
+  const m = {};
+  for (const row of r.rows) m[row.collection] = Number(row.n);
+  return m;
 }
 
 /** Extract a YouTube video ID from watch / youtu.be / shorts URLs. */
@@ -83,23 +95,9 @@ const GALLERY = [
   { img: '/images/product-large.jpg', label: 'Large · Noir' },
 ];
 
-const TESTIMONIALS = [
-  {
-    t: 'The Heritage Tote looks even better in person — the leather, the stitching, everything feels premium. The packaging felt like opening a gift to myself.',
-    n: 'Ayesha K.', c: 'Lahore',
-  },
-  {
-    t: 'Ordered on Monday, delivered by Thursday. I was nervous about buying a bag online, but the quality is beyond what I expected at this price.',
-    n: 'Mahnoor S.', c: 'Karachi',
-  },
-  {
-    t: 'My Sahara leather tote has aged beautifully in six months. You can tell it was made by people who actually care. Worth every rupee.',
-    n: 'Fatima R.', c: 'Islamabad',
-  },
-];
-
 export default async function Home() {
   const bestsellers = await getBestsellers();
+  const counts = await getCollectionCounts();
   const videoUrl = (await getSetting('video_url')) || '';
   const ytVideoId = youtubeId(videoUrl);
   const showVideo = Boolean(ytVideoId || (!ytVideoId && isDirectVideo(videoUrl)));
@@ -109,7 +107,7 @@ export default async function Home() {
 
   return (
     <>
-      <CinematicHero />
+      <EditorialHero />
 
       {/* MARQUEE */}
       <div className="marquee" aria-hidden="true">
@@ -130,8 +128,9 @@ export default async function Home() {
             {Object.values(COLLECTIONS).map((c, i) => (
               <Reveal key={c.id} delay={i === 1 ? 'rv-d1' : i === 2 ? 'rv-d2' : ''}>
                 <Link href={`/shop?collection=${c.id}`} className="coll-card">
-                  <img src={c.image} alt={`${c.name} — Pakistani model with AMMIGE handbag`} loading="lazy" />
+                  <SmartImage src={c.image} alt={`${c.name} — AMMIGE handbag`} fill />
                   <div className="coll-shade" />
+                  <div className="coll-count">{counts[c.id] || 0} pieces</div>
                   <div className="coll-info">
                     <div className="eyebrow">Collection 0{i + 1}</div>
                     <h3>{c.name.replace(' Collection', '')}</h3>
@@ -192,7 +191,7 @@ export default async function Home() {
         <div className="wrap craft-grid">
           <Reveal>
             <div className="craft-media">
-              <img src="/images/products/packaging.jpg" alt="AMMIGE premium packaging set — dust bag, tissue and care cards" loading="lazy" />
+              <SmartImage src="/images/products/packaging.jpg" alt="AMMIGE premium packaging set — dust bag, tissue and care cards" fill />
             </div>
           </Reveal>
           <div>
@@ -287,37 +286,10 @@ export default async function Home() {
         <div className="gallery-strip">
           {GALLERY.map((g) => (
             <Link key={g.img} href="/shop" className="gallery-item">
-              <img src={g.img} alt={`AMMIGE — ${g.label}`} loading="lazy" />
+              <SmartImage src={g.img} alt={`AMMIGE — ${g.label}`} fill />
               <span>{g.label}</span>
             </Link>
           ))}
-        </div>
-      </section>
-
-      {/* TESTIMONIALS */}
-      <section className="block">
-        <div className="wrap">
-          <Reveal>
-            <div className="sec-head">
-              <div className="eyebrow">Customer love</div>
-              <h2 className="display">Carried &amp; cherished</h2>
-              <p>Real words from real customers across Pakistan.</p>
-            </div>
-          </Reveal>
-          <div className="testi-grid">
-            {TESTIMONIALS.map((x, i) => (
-              <Reveal key={x.n} delay={i === 1 ? 'rv-d1' : i === 2 ? 'rv-d2' : ''}>
-                <div className="testi">
-                  <div className="stars">{'★'.repeat(5)}</div>
-                  <p>“{x.t}”</p>
-                  <div className="who">
-                    <span className="avatar">{x.n.charAt(0)}</span>
-                    <div><b>{x.n}</b><span>{x.c}</span></div>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
         </div>
       </section>
 

@@ -64,9 +64,20 @@ export default async function ProductPage({ params }) {
     },
   };
 
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+      { '@type': 'ListItem', position: 2, name: 'Shop', item: `${SITE_URL}/shop` },
+      { '@type': 'ListItem', position: 3, name: p.name, item: `${SITE_URL}/product/${p.id}` },
+    ],
+  };
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <ProductDetail p={p} related={related} />
     </>
   );

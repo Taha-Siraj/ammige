@@ -40,6 +40,30 @@ const ITEMS = [
     q: 'How can I contact you?',
     a: 'The fastest way is WhatsApp at +92 316 2852167 (Mon–Sat, 10am–8pm PKT). You can also use our contact form or DM us on Instagram @ammige012.',
   },
+  {
+    q: 'Do you deliver to my city?',
+    a: 'We deliver all across Pakistan — Karachi, Lahore, Islamabad, Rawalpindi, Faisalabad, Multan, Peshawar, Quetta and every other city and town served by our courier partners.',
+  },
+  {
+    q: 'What payment methods do you accept?',
+    a: 'Cash on Delivery is our main payment method — you pay in cash when the courier arrives. We also accept advance bank transfer on request via WhatsApp.',
+  },
+  {
+    q: 'How do I choose the right size bag?',
+    a: 'Every product page lists the bag\u2019s dimensions and what fits inside (phone, wallet, makeup pouch and so on). Our Everyday totes fit daily essentials, while Signature and Leather pieces are sized for evenings and events.',
+  },
+  {
+    q: 'Are your bags good quality?',
+    a: 'Yes. Every bag is quality-checked before dispatch — stitching, zips, straps and hardware. If anything arrives less than perfect, our 48-hour damage cover gives you a free replacement or full refund.',
+  },
+  {
+    q: 'Do you offer gift wrapping?',
+    a: 'Every order already arrives gift-ready at no extra cost: tissue wrap, a reusable branded dust bag, a thank-you card and a care guide, sealed in a strong corrugated box.',
+  },
+  {
+    q: 'Can I change or cancel my order?',
+    a: 'Yes — message us on WhatsApp within 12 hours of ordering and we will change or cancel it free of charge, as long as it has not been dispatched yet.',
+  },
 ];
 
 export default function FaqPage() {
