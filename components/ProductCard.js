@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { fmtPKR, useCart } from './CartProvider';
+import SmartImage from './SmartImage';
 
 /**
  * Hover image: the product's OWN second photo (`image2`). Shown only when the
@@ -112,14 +113,15 @@ export default function ProductCard({ p }) {
   return (
     <div className="prod-card" ref={cardRef}>
       <Link href={`/product/${p.id}`} className="prod-media" aria-label={p.name}>
-        <img key={shownImage} src={shownImage} alt={`${p.name} — AMMIGE ${p.collection} handbag`} loading="lazy" className="prod-img-main" />
+        <SmartImage key={shownImage} src={shownImage} alt={`${p.name} — AMMIGE ${p.collection} handbag`} fill className="prod-img-main" />
         {canHover && hoverImage && (
-          <img
+          <SmartImage
             className="prod-img-hover"
             src={hoverImage}
             alt=""
+            fill
+            noFade
             aria-hidden="true"
-            loading="lazy"
           />
         )}
         {hoverCapable === false && hoverImage && (
@@ -142,6 +144,9 @@ export default function ProductCard({ p }) {
         )}
         {p.badge && (
           <span className={`prod-badge ${p.badge === 'Sale' ? 'sale' : ''}`}>{p.badge}</span>
+        )}
+        {p.spin_frames?.length > 0 && (
+          <span className="prod-badge spin360-badge" title="360° view available">⟳ 360°</span>
         )}
         <button
           className={`prod-wish ${wished ? 'on' : ''}`}

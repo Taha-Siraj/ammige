@@ -4,17 +4,17 @@ import NewsletterForm from './NewsletterForm';
 const SOCIALS = [
   {
     name: 'Instagram',
-    href: 'https://instagram.com/ammige012',
+    href: 'https://www.instagram.com/ammige012',
     icon: <><rect x="3.5" y="3.5" width="17" height="17" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.2" cy="6.8" r="1.1" fill="#fff" stroke="none" /></>,
   },
   {
     name: 'TikTok',
-    href: 'https://tiktok.com/@ammige012',
+    href: 'https://www.tiktok.com/@ammige012',
     icon: <path d="M14.5 4v9.8a3.9 3.9 0 1 1-3.1-3.8M14.5 4c.4 2.3 1.9 3.8 4.2 4" />,
   },
   {
     name: 'Facebook',
-    href: 'https://facebook.com/ammige012',
+    href: 'https://www.facebook.com/share/1KZiNXEgJi/',
     icon: <path d="M14 8.5V7c0-.8.2-1.5 1.6-1.5H17V2.5h-2.6C11.7 2.5 11 4.3 11 6.7v1.8H8.5V12H11v9.5h3V12h2.4l.6-3.5H14z" />,
   },
 ];

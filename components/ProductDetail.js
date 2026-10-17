@@ -7,9 +7,11 @@ import { useRouter } from 'next/navigation';
 import { useCart, fmtPKR } from './CartProvider';
 import { COLOR_HEX } from './colorHex';
 import ProductCard from './ProductCard';
+import SmartImage from './SmartImage';
 
 // 3D viewer — client-only, code-split, never SSR'd (three.js lazy chunk).
 const Product3DViewer = dynamic(() => import('./Product3DViewer'), { ssr: false });
+const Spin360Viewer = dynamic(() => import('./Spin360Viewer'), { ssr: false });
 
 function measurements(name) {
   const n = (name || '').toLowerCase();
@@ -58,6 +60,8 @@ export default function ProductDetail({ p, related }) {
   const [added, setAdded] = useState(false);
   const [lightbox, setLightbox] = useState(false);
   const [viewer3d, setViewer3d] = useState(false);
+  const [viewer360, setViewer360] = useState(false);
+  const hasSpin = (p.spin_frames?.length || 0) >= 2;
   const [copied, setCopied] = useState(false);
   const [showSticky, setShowSticky] = useState(false);
   const ctaRef = useRef(null);
@@ -138,7 +142,14 @@ export default function ProductDetail({ p, related }) {
         <div className="pd-gallery">
           <div className="pd-main" onClick={() => setLightbox(true)} role="button" tabIndex={0}
                aria-label="View larger image" onKeyDown={(e) => e.key === 'Enter' && setLightbox(true)}>
-            <img key={mainImg} src={mainImg} alt={alt} fetchPriority="high" className="pd-swap" />
+            <SmartImage key={mainImg} src={mainImg} alt={alt} fill priority sizes="(max-width: 1024px) 100vw, 50vw" className="pd-swap" />
+            {/* Smart recolor: no real photo for this color yet -> tint the bag to the selected color */}
+            {!variantImg && color && COLOR_HEX[color] && (
+              <div aria-hidden="true" style={{
+                position: 'absolute', inset: 0, pointerEvents: 'none',
+                background: COLOR_HEX[color], mixBlendMode: 'color', opacity: 0.92,
+              }} />
+            )}
             <button
               className="pd-3dbtn"
               onClick={(e) => { e.stopPropagation(); setViewer3d(true); }}
@@ -148,12 +159,24 @@ export default function ProductDetail({ p, related }) {
               <svg viewBox="0 0 24 24"><path d="M12 2l9 5v10l-9 5-9-5V7l9-5z" /><path d="M3 7l9 5 9-5" /><path d="M12 12v10" /></svg>
               3D View
             </button>
+            {hasSpin && (
+              <button
+                className="pd-3dbtn spin360-attn"
+                style={{ top: 64, bottom: 'auto' }}
+                onClick={(e) => { e.stopPropagation(); setViewer360(true); }}
+                onKeyDown={(e) => e.stopPropagation()}
+                aria-label="Open 360 degree view"
+              >
+                <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7" /><path d="M21 3v6h-6" /></svg>
+                360°
+              </button>
+            )}
           </div>
           {thumbs.length > 1 && (
             <div className="pd-thumbs">
               {thumbs.map((g, i) => (
                 <button key={g} className={`pd-thumb ${g === mainImg ? 'on' : ''}`} onClick={() => setViewImg(g)} aria-label={`View image ${i + 1}`}>
-                  <img src={g} alt="" />
+                  <SmartImage src={g} alt="" fill />
                 </button>
               ))}
             </div>
@@ -320,12 +343,29 @@ export default function ProductDetail({ p, related }) {
           <button className="icon-btn" aria-label="Close" style={{ background: 'rgba(255,255,255,.12)' }}>
             <svg viewBox="0 0 24 24" style={{ stroke: '#fff' }}><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
-          <img src={mainImg} alt={alt} onClick={(e) => e.stopPropagation()} />
+          <div style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+            <img src={mainImg} alt={alt} />
+            {!variantImg && color && COLOR_HEX[color] && (
+              <div aria-hidden="true" style={{
+                position: 'absolute', inset: 0, pointerEvents: 'none',
+                background: COLOR_HEX[color], mixBlendMode: 'color', opacity: 0.92,
+              }} />
+            )}
+          </div>
         </div>
       )}
 
       {viewer3d && (
         <Product3DViewer image={mainImg} alt={alt} onClose={() => setViewer3d(false)} />
+      )}
+      {viewer360 && hasSpin && (
+        <Spin360Viewer
+          frames={p.spin_frames}
+          alt={alt}
+          onClose={() => setViewer360(false)}
+          tint={!variantImg && color && COLOR_HEX[color] ? COLOR_HEX[color] : null}
+          tintName={!variantImg && color ? color : null}
+        />
       )}
 
       {related?.length > 0 && (
