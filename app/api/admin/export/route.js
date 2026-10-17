@@ -63,5 +63,17 @@ export async function GET(req) {
     });
   }
 
-  return NextResponse.json({ error: 'type must be "orders" or "products".' }, { status: 400 });
+  if (type === 'newsletter') {
+    const r = await c.execute({ sql: 'SELECT id, email, created_at FROM newsletter ORDER BY id DESC' });
+    const rows = [['id', 'email', 'created_at']];
+    for (const s of r.rows) rows.push([s.id, s.email, s.created_at]);
+    return new NextResponse(csv(rows), {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="ammige-newsletter-${stamp}.csv"`,
+      },
+    });
+  }
+
+  return NextResponse.json({ error: 'type must be "orders", "products" or "newsletter".' }, { status: 400 });
 }

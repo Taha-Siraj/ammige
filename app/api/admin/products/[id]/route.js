@@ -9,7 +9,7 @@ import { checkOrigin } from '@/lib/csrf';
 import { checkRate } from '@/lib/rate-limit';
 
 const ALLOWED = ['sku', 'name', 'collection', 'price', 'old_price', 'colors', 'material',
-  'description', 'image', 'image2', 'variant_images', 'sizes', 'rating', 'reviews', 'badge', 'stock', 'active'];
+  'description', 'image', 'image2', 'variant_images', 'sizes', 'spin_frames', 'rating', 'reviews', 'badge', 'stock', 'active'];
 
 function adminWriteLimit(req) {
   return checkRate(req, { windowMs: 60_000, max: 60, scope: 'admin-write' });
@@ -42,6 +42,7 @@ function clean(k, v, existing) {
       return JSON.stringify(out);
     }
     case 'sizes': return JSON.stringify(sanitizeStringArray(v));
+    case 'spin_frames': return JSON.stringify(sanitizeStringArray(v).filter((u) => isSafeImageUrl(u)).slice(0, 36));
     case 'rating': return typeof v === 'number' ? Math.min(5, Math.max(0, v)) : existing.rating;
     case 'reviews': return isPositiveInt(v) ? v : 0;
     case 'badge': return sanitizeText(v, 20) || null;

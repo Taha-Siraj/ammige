@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 
-const TABS = ['Dashboard', 'Orders', 'New Order', 'Products', 'Customers', 'Coupons', 'Settings'];
+const TABS = ['Dashboard', 'Orders', 'New Order', 'Products', 'Customers', 'Coupons', 'Newsletter', 'Settings'];
 const STATUSES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
 const NEXT_STATUS = { pending: 'confirmed', confirmed: 'shipped', shipped: 'delivered' };
 
@@ -152,6 +152,7 @@ export default function AdminPage() {
       {tab === 'Products' && <Products />}
       {tab === 'Customers' && <Customers />}
       {tab === 'Coupons' && <Coupons />}
+      {tab === 'Newsletter' && <Newsletter />}
       {tab === 'Settings' && <Settings />}
     </div>
   );
@@ -259,6 +260,21 @@ function Dashboard() {
             <div key={s} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1E9DA' }}>
               <span className={`pill ${s}`} style={{ textTransform: 'capitalize' }}>{s}</span>
               <b>{d.statusBreakdown?.[s] || 0}</b>
+            </div>
+          ))}
+        </div>
+
+        <div className="admin-card">
+          <h3 className="display" style={{ fontSize: 22, marginBottom: 12 }}>
+            Top Products <small style={{ color: 'var(--muted)' }}>({range === 'today' ? 'today' : range === '7d' ? '7 days' : '30 days'})</small>
+          </h3>
+          {!(d.topProducts || []).length && <p style={{ color: 'var(--muted)' }}>No sales in this period yet.</p>}
+          {(d.topProducts || []).map((p, i) => (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F1E9DA', gap: 8 }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <b style={{ color: '#C29B4B', marginRight: 8 }}>#{i + 1}</b>{p.name}
+              </span>
+              <b style={{ whiteSpace: 'nowrap' }}>{p.qty} sold · {fmtRs(p.revenue)}</b>
             </div>
           ))}
         </div>
@@ -1117,6 +1133,141 @@ function Products() {
   );
 }
 
+/**
+ * Client-side image prep: downscale huge photos before upload so the
+ * database stays lean. Returns a File/Blob ready for /api/admin/upload.
+ */
+async function prepImage(file, maxDim = 1600) {
+  if (file.type === 'image/gif') return file; // keep animation
+  const bmp = await createImageBitmap(file).catch(() => null);
+  if (!bmp) return file;
+  const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+  if (scale >= 1 && file.size < 900 * 1024) { bmp.close(); return file; }
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bmp.width * scale);
+  canvas.height = Math.round(bmp.height * scale);
+  canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+  bmp.close();
+  const type = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+  const blob = await new Promise((res) => canvas.toBlob(res, type, 0.85));
+  return blob ? new File([blob], file.name.replace(/\.\w+$/, type === 'image/png' ? '.png' : '.jpg'), { type }) : file;
+}
+
+async function uploadFile(file, maxDim) {
+  const ready = await prepImage(file, maxDim);
+  const fd = new FormData();
+  fd.append('file', ready);
+  const r = await fetch('/api/admin/upload', { method: 'POST', body: fd });
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error || 'Upload failed');
+  return d.url;
+}
+
+/** Small upload button used next to URL inputs. */
+function ImageUploadButton({ onUploaded, title, maxDim = 1600 }) {
+  const [busy, setBusy] = useState(false);
+  const pick = () => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/jpeg,image/png,image/webp,image/gif';
+    inp.onchange = async () => {
+      const f = inp.files?.[0];
+      if (!f) return;
+      setBusy(true);
+      try {
+        const url = await uploadFile(f, maxDim);
+        onUploaded(url);
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+    inp.click();
+  };
+  return (
+    <button type="button" className="btn btn-outline btn-sm" onClick={pick} disabled={busy}
+      title={title || 'Upload image from device'} style={{ whiteSpace: 'nowrap' }}>
+      {busy ? '…' : '📤 Upload'}
+    </button>
+  );
+}
+
+/** Image field with preview + upload + URL fallback. */
+function ImageField({ label, value, onChange, hint }) {
+  return (
+    <div className="f-group">
+      <label>{label}</label>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <input value={value || ''} onChange={(e) => onChange(e.target.value)}
+          placeholder="Upload from device or paste image link" style={{ flex: 1 }} />
+        <ImageUploadButton onUploaded={onChange} />
+      </div>
+      {value ? (
+        <img src={value} alt="preview" className="ad-img-preview" />
+      ) : hint ? (
+        <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
+/** 360° frames: multi-upload with ordered thumbnails. */
+function FramesField({ value, onChange }) {
+  const [busy, setBusy] = useState(false);
+  const list = String(value || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const pick = () => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/jpeg,image/png,image/webp';
+    inp.multiple = true;
+    inp.onchange = async () => {
+      const files = [...(inp.files || [])].slice(0, 24 - list.length);
+      if (!files.length) return;
+      setBusy(true);
+      try {
+        const urls = [];
+        for (const f of files) urls.push(await uploadFile(f, 1200));
+        onChange([...list, ...urls].join(', '));
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+    inp.click();
+  };
+  const remove = (i) => onChange(list.filter((_, j) => j !== i).join(', '));
+  return (
+    <div className="f-group">
+      <label>360° Spin Frames ({list.length}/24)</label>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 }}>
+        <input value={value || ''} onChange={(e) => onChange(e.target.value)}
+          placeholder="Or paste comma-separated image links" style={{ flex: 1 }} />
+        <button type="button" className="btn btn-outline btn-sm" onClick={pick} disabled={busy}
+          style={{ whiteSpace: 'nowrap' }}>
+          {busy ? 'Uploading…' : '📤 Upload angles'}
+        </button>
+      </div>
+      {list.length > 0 && (
+        <div className="ad-frames">
+          {list.map((u, i) => (
+            <div key={`${i}-${u.slice(-12)}`} className="ad-frame">
+              <img src={u} alt={`angle ${i + 1}`} />
+              <span className="ad-frame-n">{i + 1}</span>
+              <button type="button" onClick={() => remove(i)} aria-label={`Remove angle ${i + 1}`}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+        Upload the product's photos from every angle <b>in rotation order</b> (left → right).
+        More angles = smoother spin. Max 24.
+      </p>
+    </div>
+  );
+}
+
 function ColorPhotos({ colors, variantImages, onChange }) {
   const list = String(colors || '').split(',').map((s) => s.trim()).filter(Boolean);
   if (list.length === 0) return null;
@@ -1129,13 +1280,17 @@ function ColorPhotos({ colors, variantImages, onChange }) {
           <input
             value={variantImages[c] || ''}
             onChange={(e) => onChange(c, e.target.value)}
-            placeholder="/images/products/... (optional)"
+            placeholder="Upload or paste URL (optional)"
             style={{ flex: 1 }}
+          />
+          <ImageUploadButton
+            onUploaded={(url) => onChange(c, url)}
+            title={`Upload photo for ${c}`}
           />
         </div>
       ))}
       <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-        Leave empty to use the main image for that color.
+        Leave empty to use the main image for that color. You can upload or paste a link.
       </p>
     </div>
   );
@@ -1153,6 +1308,7 @@ function ProductEditor({ product, onClose, onSaved }) {
     image2: product?.image2 || '',
     colors: (product?.colors || []).join(', '),
     sizes: (product?.sizes || []).join(', '),
+    spin_frames: (product?.spin_frames || []).join(', '),
     variant_images: product?.variant_images || {},
     stock: product?.stock ?? 50,
     badge: product?.badge || '',
@@ -1177,6 +1333,7 @@ function ProductEditor({ product, onClose, onSaved }) {
         active: Number(f.active),
         colors: String(f.colors || '').split(',').map((s) => s.trim()).filter(Boolean),
         sizes: String(f.sizes || '').split(',').map((s) => s.trim()).filter(Boolean),
+        spin_frames: String(f.spin_frames || '').split(',').map((s) => s.trim()).filter(Boolean),
       };
       const url = product ? `/api/admin/products/${product.id}` : '/api/admin/products';
       const r = await fetch(url, {
@@ -1230,8 +1387,11 @@ function ProductEditor({ product, onClose, onSaved }) {
             <div className="f-group"><label>Colors (comma-separated)</label><input value={f.colors} onChange={set('colors')} placeholder="Terracotta, Black, Beige" /></div>
             <div className="f-group"><label>Sizes (comma-separated)</label><input value={f.sizes} onChange={set('sizes')} placeholder="Mini, Medium, Large" /></div>
           </div>
-          <div className="f-group"><label>Image URL</label><input value={f.image} onChange={set('image')} placeholder="/images/products/..." /></div>
-          <div className="f-group"><label>Hover Image URL (2nd photo — shows on hover)</label><input value={f.image2} onChange={set('image2')} placeholder="/images/products/... (optional)" /></div>
+          <ImageField label="Main Image" value={f.image} onChange={(v) => setF({ ...f, image: v })}
+            hint="The main product photo — upload from your device, no link needed." />
+          <ImageField label="Hover Image (2nd photo — shows on hover)" value={f.image2}
+            onChange={(v) => setF({ ...f, image2: v })} />
+          <FramesField value={f.spin_frames} onChange={(v) => setF({ ...f, spin_frames: v })} />
           <ColorPhotos colors={f.colors} variantImages={f.variant_images || {}} onChange={(color, url) => {
             const vi = { ...(f.variant_images || {}) };
             if (url.trim()) vi[color] = url.trim(); else delete vi[color];
@@ -1254,6 +1414,72 @@ function ProductEditor({ product, onClose, onSaved }) {
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Newsletter subscribers                                               */
+/* ------------------------------------------------------------------ */
+
+function Newsletter() {
+  const [list, setList] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
+
+  const load = useCallback(async () => {
+    const qs = new URLSearchParams({ page: String(page), limit: '50', ...(q.trim() ? { q: q.trim() } : {}) });
+    const r = await fetch(`/api/admin/newsletter?${qs}`);
+    const d = await r.json().catch(() => ({}));
+    setList(d.items || []);
+    setTotal(d.total || 0);
+  }, [q, page]);
+
+  useEffect(() => {
+    const t = setTimeout(load, q ? 350 : 0);
+    return () => clearTimeout(t);
+  }, [load, q]);
+
+  const remove = async (id, email) => {
+    if (!window.confirm(`Remove ${email} from the newsletter?`)) return;
+    await fetch('/api/admin/newsletter', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    load();
+  };
+
+  return (
+    <div className="admin-card" style={{ overflowX: 'auto', padding: 12 }}>
+      <div className="toolbar" style={{ marginTop: 0 }}>
+        <div className="search" style={{ minWidth: 220 }}>
+          <input placeholder="Search email..." value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} aria-label="Search subscribers" />
+        </div>
+        <span style={{ color: 'var(--muted)', fontSize: 14 }}>{total} subscriber{total === 1 ? '' : 's'}</span>
+        <a className="btn btn-outline btn-sm" href="/api/admin/export?type=newsletter">↓ Export CSV</a>
+      </div>
+      <table className="tbl">
+        <thead><tr><th>Email</th><th>Subscribed</th><th></th></tr></thead>
+        <tbody>
+          {list.map((s) => (
+            <tr key={s.id}>
+              <td>{s.email}</td>
+              <td style={{ whiteSpace: 'nowrap' }}>{fmtDate(s.created_at)}</td>
+              <td><button className="btn btn-outline btn-sm" onClick={() => remove(s.id, s.email)}>Remove</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {list.length === 0 && <div className="empty"><div className="display">No subscribers yet</div></div>}
+      {total > 50 && (
+        <div className="toolbar" style={{ justifyContent: 'center' }}>
+          <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>← Prev</button>
+          <span style={{ fontSize: 14 }}>Page {page}</span>
+          <button className="btn btn-outline btn-sm" disabled={page * 50 >= total} onClick={() => setPage((p) => p + 1)}>Next →</button>
+        </div>
+      )}
     </div>
   );
 }
